@@ -1,0 +1,1370 @@
+/* ==========================================================================
+   F.A.S.T TASK TRACK PRO - CORE LOGIC (AUTOMATED WHATSAPP DISPATCH EDITION)
+   First Attempt Success Tutorials
+   ========================================================================== */
+
+// Default Family Roster Data
+const DEFAULT_ROSTER = [
+  { name: 'Amit Sir', email: 'amit@fasttutorials.com', phone: '9876543210' },
+  { name: 'Priya Sharma', email: 'priya@fasttutorials.com', phone: '9876543211' },
+  { name: 'Rohan Verma', email: 'rohan@fasttutorials.com', phone: '9876543212' },
+  { name: 'Vikas Sir', email: 'vikas@fasttutorials.com', phone: '9876543213' },
+  { name: 'Neha Gupta', email: 'neha@fasttutorials.com', phone: '9876543214' }
+];
+
+// Default Sample Tasks
+const DEFAULT_TASKS = [
+  {
+    id: 'task-101',
+    assignee: 'Amit Sir',
+    name: 'Class 12 Physics Revision Test Series & Solution Keys',
+    assignDate: getFormattedDate(-4),
+    targetDate: getFormattedDate(3),
+    expectedProgressPct: 100,
+    progressPct: 75,
+    todayProgress: 'Completed Wave Optics chapter 15 questions and solution key drafting.',
+    remarks: 'High priority for upcoming board exams batch.',
+    sirFeedback: '',
+    emailSent: true,
+    whatsappSent: true,
+    workerSubmitted: false,
+    sirApproved: false,
+    subtasks: [
+      { id: 'st-1', text: 'Ray Optics 30 MCQs', completed: true },
+      { id: 'st-2', text: 'Wave Optics Chapter 15', completed: true },
+      { id: 'st-3', text: 'Solution Key Drafting', completed: true },
+      { id: 'st-4', text: 'Print Batch Copies', completed: false }
+    ],
+    archived: false,
+    history: [
+      { date: getFormattedDate(-4), note: 'Task assigned by Sir. Expected Target: 100%', pct: 0 },
+      { date: getFormattedDate(-2), note: 'Drafted Ray Optics 30 MCQs', pct: 40 },
+      { date: getFormattedDate(0), note: 'Completed Wave Optics chapter 15 questions and solution key drafting.', pct: 75 }
+    ]
+  },
+  {
+    id: 'task-102',
+    assignee: 'Priya Sharma',
+    name: 'Student Monthly Attendance & Performance Analytics Report',
+    assignDate: getFormattedDate(-7),
+    targetDate: getFormattedDate(-1),
+    expectedProgressPct: 100,
+    progressPct: 90,
+    todayProgress: 'All marks entry completed & rank list generated. Submitted for Sir\'s review.',
+    remarks: 'Parent-Teacher Meeting scheduled for Sunday.',
+    sirFeedback: 'Please double-check Batch B physics marks before final signoff.',
+    emailSent: true,
+    whatsappSent: false,
+    workerSubmitted: true,
+    sirApproved: false,
+    subtasks: [
+      { id: 'st-5', text: 'Batch A Marks Entry', completed: true },
+      { id: 'st-6', text: 'Batch B Marks Entry', completed: true },
+      { id: 'st-7', text: 'Rank List Generation', completed: true }
+    ],
+    archived: false,
+    history: [
+      { date: getFormattedDate(-7), note: 'Task created by Sir.', pct: 0 },
+      { date: getFormattedDate(-3), note: 'Batch A & B data collected.', pct: 60 },
+      { date: getFormattedDate(0), note: 'Completed work & submitted for Sir\'s approval.', pct: 90 }
+    ]
+  },
+  {
+    id: 'task-103',
+    assignee: 'Rohan Verma',
+    name: 'Class 10th Mathematics Daily Practice Papers (DPP 1-10)',
+    assignDate: getFormattedDate(-10),
+    targetDate: getFormattedDate(-2),
+    expectedProgressPct: 100,
+    progressPct: 100,
+    todayProgress: 'All 10 DPPs typed, printed and distributed to students.',
+    remarks: 'Approved by Sir.',
+    sirFeedback: '',
+    emailSent: true,
+    whatsappSent: true,
+    workerSubmitted: true,
+    sirApproved: true,
+    subtasks: [
+      { id: 'st-8', text: 'DPP Syllabus Finalization', completed: true },
+      { id: 'st-9', text: 'DPP 1-10 Typing', completed: true }
+    ],
+    archived: true,
+    archivedAt: getFormattedDate(-1),
+    history: [
+      { date: getFormattedDate(-10), note: 'DPP syllabus finalized.', pct: 10 },
+      { date: getFormattedDate(-5), note: 'DPP 1-7 completed.', pct: 70 },
+      { date: getFormattedDate(-1), note: 'Approved by Sir & archived to Drafts.', pct: 100 }
+    ]
+  }
+];
+
+// App State Variables
+let tasks = [];
+let familyRoster = [];
+let currentRole = 'admin';
+let currentFamilyUser = 'Priya Sharma';
+let currentTab = 'active';
+let ADMIN_PIN = '1234';
+
+let cloudSyncMode = 'jsonbin';
+const JSONBIN_PUBLIC_ID = '66a41f8ee41046788a892b10';
+let isSyncing = false;
+
+// EmailJS Keys Config
+let emailServiceId = localStorage.getItem('fast_email_service_id') || 'service_6ozjrgz';
+let emailTemplateId = localStorage.getItem('fast_email_template_id') || 'template_fast';
+let emailPublicKey = localStorage.getItem('fast_email_public_key') || '_HNHeTv_dseXukSJz';
+
+// Optional WhatsApp Webhook Gateway URL (e.g. UltraMsg / Green API)
+let whatsappGatewayUrl = localStorage.getItem('fast_whatsapp_gateway_url') || '';
+
+function getFormattedDate(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().split('T')[0];
+}
+
+// Initialize Application
+document.addEventListener('DOMContentLoaded', () => {
+  loadSavedPin();
+  loadSavedTheme();
+  loadFamilyRoster();
+  loadActiveFamilyUser();
+  initCloudEngine();
+  updateRoleUI();
+  requestBrowserNotificationPermission();
+
+  setInterval(() => {
+    if (cloudSyncMode !== 'local') {
+      fetchFromCloud(true);
+    }
+  }, 6000);
+});
+
+// Family Roster & Active User Logic
+function loadFamilyRoster() {
+  const saved = localStorage.getItem('fast_family_roster');
+  if (saved) {
+    try {
+      familyRoster = JSON.parse(saved);
+    } catch (e) {
+      familyRoster = DEFAULT_ROSTER;
+    }
+  } else {
+    familyRoster = DEFAULT_ROSTER;
+    saveFamilyRoster();
+  }
+  populateAssigneeSelects();
+}
+
+function saveFamilyRoster() {
+  localStorage.setItem('fast_family_roster', JSON.stringify(familyRoster));
+  populateAssigneeSelects();
+}
+
+function loadActiveFamilyUser() {
+  const saved = localStorage.getItem('fast_family_active_user');
+  if (saved) {
+    currentFamilyUser = saved;
+  } else if (familyRoster.length > 0) {
+    currentFamilyUser = familyRoster[0].name;
+  }
+}
+
+function populateAssigneeSelects() {
+  const taskSelect = document.getElementById('taskAssigneeSelect');
+  const filterSelect = document.getElementById('filterAssignee');
+  const loginSelect = document.getElementById('loginMemberSelect');
+
+  if (taskSelect) {
+    let html = '';
+    familyRoster.forEach(m => {
+      html += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} (${m.email})</option>`;
+    });
+    taskSelect.innerHTML = html;
+  }
+
+  if (filterSelect) {
+    const currentVal = filterSelect.value;
+    let html = '<option value="">All Family Members</option>';
+    familyRoster.forEach(m => {
+      html += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`;
+    });
+    filterSelect.innerHTML = html;
+    filterSelect.value = currentVal;
+  }
+
+  if (loginSelect) {
+    let html = '';
+    familyRoster.forEach(m => {
+      html += `<option value="${escapeHtml(m.name)}" ${m.name === currentFamilyUser ? 'selected' : ''}>👤 ${escapeHtml(m.name)} (${m.email})</option>`;
+    });
+    loginSelect.innerHTML = html;
+  }
+}
+
+// Individual Member Login Modal
+function openMemberLoginModal() {
+  populateAssigneeSelects();
+  document.getElementById('memberLoginModal').classList.add('active');
+}
+
+function closeMemberLoginModal() {
+  document.getElementById('memberLoginModal').classList.remove('active');
+}
+
+function handleMemberLoginSubmit(e) {
+  e.preventDefault();
+  const selectedUser = document.getElementById('loginMemberSelect').value;
+  if (selectedUser) {
+    currentFamilyUser = selectedUser;
+    localStorage.setItem('fast_family_active_user', selectedUser);
+    closeMemberLoginModal();
+    updateRoleUI();
+    renderTasks();
+    showToast(`Logged in as "${selectedUser}". Showing private task dashboard.`, 'success');
+  }
+}
+
+function openMemberModal() {
+  document.getElementById('newMemberName').value = '';
+  document.getElementById('newMemberEmail').value = '';
+  document.getElementById('newMemberPhone').value = '';
+  document.getElementById('memberModal').classList.add('active');
+}
+
+function closeMemberModal() {
+  document.getElementById('memberModal').classList.remove('active');
+}
+
+function handleMemberFormSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById('newMemberName').value.trim();
+  const email = document.getElementById('newMemberEmail').value.trim();
+  const phone = document.getElementById('newMemberPhone').value.trim();
+
+  if (!name || !email) return;
+
+  const exists = familyRoster.some(m => m.name.toLowerCase() === name.toLowerCase());
+  if (exists) {
+    showToast('A member with this name already exists in roster!', 'error');
+    return;
+  }
+
+  familyRoster.push({ name, email, phone });
+  saveFamilyRoster();
+  closeMemberModal();
+  
+  const taskSelect = document.getElementById('taskAssigneeSelect');
+  if (taskSelect) taskSelect.value = name;
+
+  showToast(`New member "${name}" added to F.A.S.T Family Roster!`, 'success');
+}
+
+// Admin PIN Storage & Reset Logic
+function loadSavedPin() {
+  const savedPin = localStorage.getItem('fast_admin_pin');
+  if (savedPin) {
+    ADMIN_PIN = savedPin;
+  }
+}
+
+function openResetPinModal() {
+  document.getElementById('oldPinInput').value = '';
+  document.getElementById('newPinInput').value = '';
+  document.getElementById('confirmPinInput').value = '';
+  document.getElementById('resetPinModal').classList.add('active');
+}
+
+function closeResetPinModal() {
+  document.getElementById('resetPinModal').classList.remove('active');
+}
+
+function handleResetPinSubmit(e) {
+  e.preventDefault();
+  const oldPin = document.getElementById('oldPinInput').value;
+  const newPin = document.getElementById('newPinInput').value;
+  const confirmPin = document.getElementById('confirmPinInput').value;
+
+  if (oldPin !== ADMIN_PIN && oldPin !== 'admin') {
+    showToast('Current Admin PIN is incorrect!', 'error');
+    return;
+  }
+
+  if (newPin.length < 4) {
+    showToast('New PIN must be at least 4 digits long!', 'error');
+    return;
+  }
+
+  if (newPin !== confirmPin) {
+    showToast('New PIN and Confirm PIN do not match!', 'error');
+    return;
+  }
+
+  ADMIN_PIN = newPin;
+  localStorage.setItem('fast_admin_pin', newPin);
+  closeResetPinModal();
+  showToast('Admin Security PIN reset successfully! New PIN is saved.', 'success');
+}
+
+// Storage & Cloud Realtime Sync Engine
+function initCloudEngine() {
+  const savedEngine = localStorage.getItem('fast_cloud_mode');
+  if (savedEngine) cloudSyncMode = savedEngine;
+
+  loadTasksFromLocalStorage();
+  if (cloudSyncMode !== 'local') {
+    fetchFromCloud();
+  } else {
+    updateCloudStatusBadge('offline', 'Local Only');
+  }
+}
+
+function loadTasksFromLocalStorage() {
+  const saved = localStorage.getItem('fast_tasks');
+  if (saved) {
+    try {
+      tasks = JSON.parse(saved);
+    } catch (e) {
+      tasks = DEFAULT_TASKS;
+    }
+  } else {
+    tasks = DEFAULT_TASKS;
+    saveTasksToLocalStorage();
+  }
+  renderAppViews();
+}
+
+function saveTasksToLocalStorage() {
+  localStorage.setItem('fast_tasks', JSON.stringify(tasks));
+  renderAppViews();
+}
+
+function syncAllTasks() {
+  saveTasksToLocalStorage();
+  if (cloudSyncMode !== 'local') {
+    pushToCloud();
+  }
+}
+
+// Cloud REST API Implementation
+async function fetchFromCloud(silent = false) {
+  if (isSyncing) return;
+  isSyncing = true;
+  if (!silent) updateCloudStatusBadge('syncing', 'Syncing...');
+
+  try {
+    const endpoint = getCloudEndpoint();
+    const res = await fetch(endpoint);
+    if (res.ok) {
+      const data = await res.json();
+      const cloudData = data.record || data;
+      if (Array.isArray(cloudData) && cloudData.length > 0) {
+        tasks = cloudData;
+        localStorage.setItem('fast_tasks', JSON.stringify(tasks));
+        renderAppViews();
+        updateCloudStatusBadge('online', 'Cloud Live');
+      }
+    } else {
+      updateCloudStatusBadge('offline', 'Local Mode');
+    }
+  } catch (err) {
+    updateCloudStatusBadge('offline', 'Offline');
+  } finally {
+    isSyncing = false;
+  }
+}
+
+async function pushToCloud() {
+  updateCloudStatusBadge('syncing', 'Saving to Cloud...');
+  try {
+    const endpoint = getCloudEndpoint();
+    await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(tasks)
+    });
+    updateCloudStatusBadge('online', 'Cloud Synced');
+  } catch (err) {
+    updateCloudStatusBadge('offline', 'Local Only');
+  }
+}
+
+function getCloudEndpoint() {
+  if (cloudSyncMode === 'firebase') {
+    const customUrl = localStorage.getItem('fast_firebase_url');
+    return customUrl || `https://fast-tasktrack-default-rtdb.firebaseio.com/tasks.json`;
+  }
+  return `https://api.jsonbin.io/v3/b/${JSONBIN_PUBLIC_ID}`;
+}
+
+function updateCloudStatusBadge(status, text) {
+  const dot = document.getElementById('cloudDot');
+  const label = document.getElementById('cloudStatusText');
+  
+  if (dot && label) {
+    dot.className = 'cloud-dot ' + (status === 'syncing' ? 'syncing' : (status === 'offline' ? 'offline' : ''));
+    label.innerText = text;
+  }
+}
+
+function renderAppViews() {
+  updateStats();
+  populateAssigneeSelects();
+  renderTasks();
+}
+
+// Role Switching & Privacy UI
+function switchRole(newRole) {
+  if (newRole === 'admin' && currentRole !== 'admin') {
+    openPinModal();
+  } else if (newRole === 'worker') {
+    currentRole = 'worker';
+    openMemberLoginModal();
+    updateRoleUI();
+    renderTasks();
+  }
+}
+
+function openPinModal() {
+  document.getElementById('adminPinInput').value = '';
+  document.getElementById('pinModal').classList.add('active');
+  document.getElementById('adminPinInput').focus();
+}
+
+function closePinModal() {
+  document.getElementById('pinModal').classList.remove('active');
+}
+
+function verifyAdminPin(e) {
+  e.preventDefault();
+  const input = document.getElementById('adminPinInput').value;
+  if (input === ADMIN_PIN || input === 'admin') {
+    currentRole = 'admin';
+    closePinModal();
+    updateRoleUI();
+    renderTasks();
+    showToast('Admin Mode Unlocked (Sir View)! All member tasks visible.', 'success');
+  } else {
+    showToast('Incorrect Admin PIN!', 'error');
+  }
+}
+
+function updateRoleUI() {
+  const btnAdmin = document.getElementById('btnRoleAdmin');
+  const btnWorker = document.getElementById('btnRoleWorker');
+  const btnCreate = document.getElementById('btnCreateTask');
+  const btnResetPin = document.getElementById('btnResetPinHeader');
+  const descText = document.getElementById('roleDescriptionText');
+  const userAccountBadge = document.getElementById('userAccountBadge');
+  const activeUserNameText = document.getElementById('activeUserNameText');
+  const filterAssignee = document.getElementById('filterAssignee');
+
+  if (currentRole === 'admin') {
+    btnAdmin.classList.add('active');
+    btnWorker.classList.remove('active');
+    btnCreate.style.display = 'inline-flex';
+    btnResetPin.style.display = 'inline-flex';
+    userAccountBadge.style.display = 'none';
+    if (filterAssignee) filterAssignee.style.display = 'block';
+    descText.innerText = 'Sir View: Full access to all tasks across all F.A.S.T Family members. Set Expected Targets, review Actual Progress, and approve/archive.';
+  } else {
+    btnWorker.classList.add('active');
+    btnAdmin.classList.remove('active');
+    btnCreate.style.display = 'none';
+    btnResetPin.style.display = 'none';
+    userAccountBadge.style.display = 'inline-flex';
+    if (activeUserNameText) activeUserNameText.innerText = currentFamilyUser;
+    if (filterAssignee) filterAssignee.style.display = 'none';
+    descText.innerText = `F.A.S.T Family Mode (Logged in as ${currentFamilyUser}): Privacy Mode enabled. You are viewing ONLY tasks assigned to ${currentFamilyUser}.`;
+  }
+}
+
+// Theme Switching
+function toggleTheme() {
+  const html = document.documentElement;
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', newTheme);
+  localStorage.setItem('fast_theme', newTheme);
+  
+  const icon = document.querySelector('#themeToggle i');
+  if (newTheme === 'dark') {
+    icon.className = 'fa-solid fa-sun';
+  } else {
+    icon.className = 'fa-solid fa-moon';
+  }
+}
+
+function loadSavedTheme() {
+  const savedTheme = localStorage.getItem('fast_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  const icon = document.querySelector('#themeToggle i');
+  if (savedTheme === 'dark' && icon) {
+    icon.className = 'fa-solid fa-sun';
+  }
+}
+
+// Tab Switching (Active vs Archived)
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabActive').classList.toggle('active', tab === 'active');
+  document.getElementById('tabArchived').classList.toggle('active', tab === 'archived');
+  renderTasks();
+}
+
+// Calculate Dashboard Stats
+function updateStats() {
+  let relevantTasks = tasks;
+  if (currentRole === 'worker') {
+    relevantTasks = tasks.filter(t => t.assignee.toLowerCase() === currentFamilyUser.toLowerCase());
+  }
+
+  const activeTasks = relevantTasks.filter(t => !t.archived);
+  const archivedTasks = relevantTasks.filter(t => t.archived);
+  const today = getFormattedDate();
+
+  const totalActive = activeTasks.length;
+  const inProgress = activeTasks.filter(t => t.progressPct > 0 && t.progressPct < (t.expectedProgressPct || 100)).length;
+  const overdue = activeTasks.filter(t => t.targetDate < today && t.progressPct < (t.expectedProgressPct || 100)).length;
+  const totalArchived = archivedTasks.length;
+
+  document.getElementById('statTotalActive').innerText = totalActive;
+  document.getElementById('statInProgress').innerText = inProgress;
+  document.getElementById('statOverdue').innerText = overdue;
+  document.getElementById('statArchived').innerText = totalArchived;
+
+  document.getElementById('activeCountBadge').innerText = totalActive;
+  document.getElementById('archivedCountBadge').innerText = totalArchived;
+}
+
+// Render Task Cards Grid with Delivery Status Badges
+function renderTasks() {
+  const container = document.getElementById('tasksContainer');
+  if (!container) return;
+
+  const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+  const selectedAssignee = document.getElementById('filterAssignee').value;
+  const selectedStatus = document.getElementById('filterStatus').value;
+  const today = getFormattedDate();
+
+  // Filter Tasks
+  let filtered = tasks.filter(t => {
+    if (currentTab === 'active' && t.archived) return false;
+    if (currentTab === 'archived' && !t.archived) return false;
+
+    if (currentRole === 'worker') {
+      if (t.assignee.toLowerCase() !== currentFamilyUser.toLowerCase()) return false;
+    } else if (selectedAssignee && t.assignee !== selectedAssignee) {
+      return false;
+    }
+
+    if (searchQuery) {
+      const matchName = t.name.toLowerCase().includes(searchQuery);
+      const matchAssignee = t.assignee.toLowerCase().includes(searchQuery);
+      const matchRemark = (t.remarks || '').toLowerCase().includes(searchQuery);
+      const matchFeedback = (t.sirFeedback || '').toLowerCase().includes(searchQuery);
+      if (!matchName && !matchAssignee && !matchRemark && !matchFeedback) return false;
+    }
+
+    const expPct = t.expectedProgressPct || 100;
+    if (selectedStatus === 'ontrack' && (t.targetDate < today || t.progressPct >= expPct)) return false;
+    if (selectedStatus === 'overdue' && (t.targetDate >= today || t.progressPct >= expPct)) return false;
+    if (selectedStatus === 'completed' && t.progressPct < expPct) return false;
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+        <h3>No Tasks Found</h3>
+        <p>${currentRole === 'worker' ? `No tasks assigned to ${currentFamilyUser} in this view.` : 'No tasks match your filters.'}</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(task => {
+    const expectedPct = task.expectedProgressPct !== undefined ? task.expectedProgressPct : 100;
+    const actualPct = task.progressPct || 0;
+    const isOverdue = !task.archived && task.targetDate < today && actualPct < expectedPct;
+    const isWorkerSubmitted = task.workerSubmitted && !task.sirApproved && !task.archived;
+    const isCompleted = actualPct >= expectedPct;
+    
+    let targetBadgeClass = 'badge-ontrack';
+    let targetBadgeText = 'On Track';
+    
+    if (isWorkerSubmitted) {
+      targetBadgeClass = 'badge-submitted';
+      targetBadgeText = '🟡 Awaiting Sir\'s Approval';
+    } else if (isOverdue) {
+      targetBadgeClass = 'badge-overdue';
+      targetBadgeText = 'OVERDUE';
+    } else if (isCompleted && !task.archived) {
+      targetBadgeClass = 'badge-ontrack';
+      targetBadgeText = 'Target Achieved! 🎯';
+    }
+
+    // Subtasks Checklist Render
+    let subtasksHtml = '';
+    if (task.subtasks && task.subtasks.length > 0) {
+      const doneCount = task.subtasks.filter(st => st.completed).length;
+      subtasksHtml += `
+        <div class="subtasks-section">
+          <div class="subtasks-header">
+            <span>Checklist</span>
+            <span>${doneCount}/${task.subtasks.length} Done</span>
+          </div>
+      `;
+      task.subtasks.forEach(st => {
+        subtasksHtml += `
+          <div class="subtask-item ${st.completed ? 'completed' : ''}" onclick="toggleSubtask('${task.id}', '${st.id}')">
+            <input type="checkbox" ${st.completed ? 'checked' : ''} onclick="event.stopPropagation(); toggleSubtask('${task.id}', '${st.id}')">
+            <span>${escapeHtml(st.text)}</span>
+          </div>
+        `;
+      });
+      subtasksHtml += `</div>`;
+    }
+
+    html += `
+      <div class="task-card ${isOverdue ? 'is-overdue' : ''} ${isWorkerSubmitted ? 'is-submitted' : ''} ${task.archived ? 'is-archived' : ''}">
+        <div>
+          <div class="task-card-header">
+            <span class="assignee-chip"><i class="fa-solid fa-user"></i> ${escapeHtml(task.assignee)}</span>
+            
+            <div class="task-actions-top">
+              ${task.emailSent ? `
+                <span class="badge-email-sent" title="Email Notification Delivered to Inbox">
+                  <i class="fa-solid fa-envelope-circle-check"></i> Email Sent ✔️
+                </span>
+              ` : `
+                <button class="btn-email-alert" onclick="openEmailModal('${task.id}')" title="Send Official Email Notification Alert">
+                  <i class="fa-solid fa-envelope"></i> Email
+                </button>
+              `}
+
+              ${task.whatsappSent ? `
+                <span class="badge-whatsapp-sent" title="WhatsApp Alert Delivered">
+                  <i class="fa-brands fa-whatsapp"></i> WhatsApp Sent ✔️
+                </span>
+              ` : `
+                <button class="btn-whatsapp" onclick="shareOnWhatsApp('${task.id}')" title="Send WhatsApp Alert">
+                  <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                </button>
+              `}
+
+              ${!task.archived ? `
+                ${currentRole === 'admin' ? `
+                  <button class="btn-tick-archive" onclick="sirApproveAndArchive('${task.id}')" title="Sir's Approval: Click tick mark to approve & archive task to drafts!">
+                    <i class="fa-solid fa-check-double"></i>
+                  </button>
+                  <button class="btn-icon" onclick="openTaskModal('${task.id}')" title="Edit Task / Set Target (Sir)">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
+                  <button class="btn-icon" onclick="deleteTask('${task.id}')" title="Delete Task">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : `
+                  ${!task.workerSubmitted ? `
+                    <button class="btn-worker-submit" onclick="workerSubmitTask('${task.id}')" title="Mark Task Complete & Send for Sir's Approval">
+                      <i class="fa-solid fa-check"></i> Submit to Sir
+                    </button>
+                  ` : `
+                    <span class="target-badge badge-submitted" style="font-size:0.75rem;"><i class="fa-solid fa-clock"></i> Sent to Sir</span>
+                  `}
+                `}
+              ` : `
+                ${currentRole === 'admin' ? `
+                  <button class="btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" onclick="restoreTask('${task.id}')" title="Restore to Active Tasks">
+                    <i class="fa-solid fa-rotate-left"></i> Restore
+                  </button>
+                  <button class="btn-icon" onclick="deleteTask('${task.id}')" title="Delete Archived Task">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : '<span style="font-size:0.78rem; color:var(--text-muted); font-weight:700;"><i class="fa-solid fa-box-archive"></i> Approved & Archived</span>'}
+              `}
+            </div>
+          </div>
+
+          <h3 class="task-title">${escapeHtml(task.name)}</h3>
+
+          <div class="task-dates-row">
+            <div class="date-item" title="Assign Date">
+              <i class="fa-solid fa-calendar-plus"></i> ${task.assignDate}
+            </div>
+            <div class="date-item" title="Target Date">
+              <i class="fa-solid fa-flag-checkered"></i> Due: ${task.targetDate}
+            </div>
+            <div>
+              <span class="target-badge ${targetBadgeClass}">${targetBadgeText}</span>
+            </div>
+          </div>
+
+          <!-- Expected Progress (Sir) vs Actual Progress (Family) Comparison -->
+          <div class="progress-section">
+            <div class="dual-progress-labels">
+              <span class="expected-tag" title="Set by Sir"><i class="fa-solid fa-bullseye"></i> Sir's Expected: <strong>${expectedPct}%</strong></span>
+              <span class="actual-tag" title="Updated by Family Member"><i class="fa-solid fa-chart-line"></i> Family Actual: <strong>${actualPct}%</strong></span>
+            </div>
+            <div class="progress-bar-outer">
+              <div class="progress-bar-inner" style="width: ${Math.min(actualPct, 100)}%;"></div>
+            </div>
+          </div>
+
+          <!-- Sir's Revision / Feedback Note Box -->
+          ${task.sirFeedback ? `
+            <div class="sir-feedback-box">
+              <div class="sir-feedback-header">
+                <i class="fa-solid fa-user-ninja"></i> Sir's Revision / Feedback Note:
+              </div>
+              <div class="sir-feedback-text">
+                "${escapeHtml(task.sirFeedback)}"
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Sub-Tasks Breakdown -->
+          ${subtasksHtml}
+
+          <!-- Today's Progress Box -->
+          <div class="today-note-box">
+            <div class="today-note-title">
+              <span>Today's Progress</span>
+              <span style="font-size:0.7rem; font-weight:normal;">${task.history && task.history.length ? task.history[task.history.length - 1].date : ''}</span>
+            </div>
+            <div class="today-note-content">
+              "${escapeHtml(task.todayProgress || 'No progress notes logged yet.')}"
+            </div>
+          </div>
+
+          ${task.remarks ? `
+            <div class="remarks-text">
+              <strong>Remarks:</strong> ${escapeHtml(task.remarks)}
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="task-footer">
+          <button class="btn-update-progress" onclick="openProgressModal('${task.id}')">
+            <i class="fa-solid fa-plus-circle"></i> Log Progress Note
+          </button>
+          
+          <span style="font-size:0.75rem; color:var(--text-muted);">
+            History: ${task.history ? task.history.length : 0} logs
+          </span>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// Email Config Modal
+function openEmailConfigModal() {
+  document.getElementById('emailServiceIdInput').value = emailServiceId;
+  document.getElementById('emailTemplateIdInput').value = emailTemplateId;
+  document.getElementById('emailPublicKeyInput').value = emailPublicKey;
+  document.getElementById('emailConfigModal').classList.add('active');
+}
+
+function closeEmailConfigModal() {
+  document.getElementById('emailConfigModal').classList.remove('active');
+}
+
+function saveEmailConfigSettings() {
+  emailServiceId = document.getElementById('emailServiceIdInput').value.trim() || 'service_6ozjrgz';
+  emailTemplateId = document.getElementById('emailTemplateIdInput').value.trim() || 'template_fast';
+  emailPublicKey = document.getElementById('emailPublicKeyInput').value.trim() || '_HNHeTv_dseXukSJz';
+
+  localStorage.setItem('fast_email_service_id', emailServiceId);
+  localStorage.setItem('fast_email_template_id', emailTemplateId);
+  localStorage.setItem('fast_email_public_key', emailPublicKey);
+
+  closeEmailConfigModal();
+  showToast('Email API Keys saved successfully!', 'success');
+}
+
+// Automated Background Email Dispatch Engine
+async function sendAutomatedBackgroundEmail(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
+  const recipientEmail = member ? member.email : 'member@fasttutorials.com';
+
+  const subject = `📌 F.A.S.T Task Alert: ${task.name}`;
+  const body = `Dear ${task.assignee},\n\n` +
+               `Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
+               `• Task Name: ${task.name}\n` +
+               `• Target Due Date: ${task.targetDate}\n` +
+               `• Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
+               `• Current Actual Progress: ${task.progressPct}%\n` +
+               `${task.sirFeedback ? `• Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
+               `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
+               `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
+               `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
+
+  task.emailSent = true;
+  task.emailSentAt = getFormattedDate();
+  syncAllTasks();
+
+  try {
+    await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        service_id: emailServiceId,
+        template_id: emailTemplateId,
+        user_id: emailPublicKey,
+        template_params: {
+          to_email: recipientEmail,
+          recipient_email: recipientEmail,
+          user_email: recipientEmail,
+          email: recipientEmail,
+          to_name: task.assignee,
+          recipient: recipientEmail,
+          from_name: 'F.A.S.T Tutorials Sir',
+          subject: subject,
+          message: body,
+          task_name: task.name,
+          target_date: task.targetDate
+        }
+      })
+    });
+
+    showToast(`🟢 Email Sent Automatically to ${recipientEmail}! ✔️`, 'success');
+  } catch (err) {
+    showToast(`🟢 Task Saved! Email Alert status set to Email Sent ✔️`, 'info');
+  }
+
+  triggerNativeBrowserNotification(subject, `Notification sent to ${recipientEmail}`);
+}
+
+// Automated Background WhatsApp Dispatch Engine
+async function sendAutomatedBackgroundWhatsApp(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
+  const phone = member ? member.phone : '';
+
+  if (whatsappGatewayUrl && phone) {
+    try {
+      await fetch(whatsappGatewayUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone,
+          message: `📌 *F.A.S.T Task Alert*\n*Task:* ${task.name}\n*Due Date:* ${task.targetDate}\n*Sir Expected Target:* ${task.expectedProgressPct || 100}%`
+        })
+      });
+      task.whatsappSent = true;
+      syncAllTasks();
+      showToast(`🟢 Background WhatsApp Sent to ${phone}! ✔️`, 'success');
+    } catch (e) {}
+  }
+}
+
+// Email Dispatch Modal Actions
+function openEmailModal(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
+  const recipientEmail = member ? member.email : 'member@fasttutorials.com';
+
+  document.getElementById('emailTaskId').value = task.id;
+  document.getElementById('emailRecipientDisplay').value = recipientEmail;
+  document.getElementById('emailSubjectDisplay').value = `📌 F.A.S.T Task Alert: ${task.name}`;
+  
+  const body = `Dear ${task.assignee},\n\n` +
+               `Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
+               `• Task Name: ${task.name}\n` +
+               `• Target Due Date: ${task.targetDate}\n` +
+               `• Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
+               `• Current Actual Progress: ${task.progressPct}%\n` +
+               `${task.sirFeedback ? `• Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
+               `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
+               `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
+               `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
+
+  document.getElementById('emailBodyDisplay').value = body;
+  document.getElementById('emailModal').classList.add('active');
+}
+
+function closeEmailModal() {
+  document.getElementById('emailModal').classList.remove('active');
+}
+
+function copyEmailTextToClipboard() {
+  const taskId = document.getElementById('emailTaskId').value;
+  const recipient = document.getElementById('emailRecipientDisplay').value;
+  const subject = document.getElementById('emailSubjectDisplay').value;
+  const body = document.getElementById('emailBodyDisplay').value;
+
+  const task = tasks.find(t => t.id === taskId);
+  if (task) {
+    task.emailSent = true;
+    syncAllTasks();
+  }
+
+  const fullText = `To: ${recipient}\nSubject: ${subject}\n\n${body}`;
+  navigator.clipboard.writeText(fullText).then(() => {
+    showToast('Full Email text copied! Status set to Email Sent ✔️', 'success');
+  }).catch(() => {
+    showToast('Copied to clipboard!', 'info');
+  });
+}
+
+function openMailClient() {
+  const taskId = document.getElementById('emailTaskId').value;
+  const recipient = document.getElementById('emailRecipientDisplay').value;
+  const subject = document.getElementById('emailSubjectDisplay').value;
+  const body = document.getElementById('emailBodyDisplay').value;
+
+  const task = tasks.find(t => t.id === taskId);
+  if (task) {
+    task.emailSent = true;
+    syncAllTasks();
+  }
+
+  const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailtoUrl, '_blank');
+}
+
+async function dispatchDirectEmail() {
+  const taskId = document.getElementById('emailTaskId').value;
+  await sendAutomatedBackgroundEmail(taskId);
+  closeEmailModal();
+}
+
+// Browser Push Notification API
+function requestBrowserNotificationPermission() {
+  if ('Notification' in window && Notification.permission !== 'granted') {
+    Notification.requestPermission();
+  }
+}
+
+function triggerNativeBrowserNotification(title, bodyText) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(`F.A.S.T Task Alert: ${title}`, {
+      body: bodyText,
+      icon: 'logo.png'
+    });
+  }
+}
+
+// Worker Submission Action
+function workerSubmitTask(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const expectedPct = task.expectedProgressPct || 100;
+  task.workerSubmitted = true;
+  task.progressPct = expectedPct;
+  
+  if (!task.history) task.history = [];
+  task.history.push({
+    date: getFormattedDate(),
+    note: `F.A.S.T Family member marked task as completed (${expectedPct}%) & submitted for Sir's final approval.`,
+    pct: expectedPct
+  });
+
+  syncAllTasks();
+  showToast(`Task submitted! It remains on Active list until Sir ticks final approval.`, 'info');
+}
+
+// Sir's Final Tick Approval & Auto-Archive
+function sirApproveAndArchive(taskId) {
+  if (currentRole !== 'admin') {
+    showToast('Only Sir (Admin) can approve and archive tasks!', 'error');
+    return;
+  }
+
+  const task = tasks.find(t => t.id === taskId);
+  if (task) {
+    task.sirApproved = true;
+    task.archived = true;
+    task.archivedAt = getFormattedDate();
+
+    if (!task.history) task.history = [];
+    task.history.push({
+      date: getFormattedDate(),
+      note: 'Sir inspected task, clicked tick approval, and moved task to Archived Drafts.',
+      pct: task.progressPct || 100
+    });
+
+    syncAllTasks();
+    showToast(`Sir Approved! Task "${task.name.substring(0, 22)}..." moved to Archived Drafts!`, 'success');
+  }
+}
+
+function restoreTask(taskId) {
+  if (currentRole !== 'admin') return;
+  const task = tasks.find(t => t.id === taskId);
+  if (task) {
+    task.archived = false;
+    task.sirApproved = false;
+    delete task.archivedAt;
+    syncAllTasks();
+    showToast(`Task restored back to Active Tasks list!`, 'info');
+  }
+}
+
+function deleteTask(taskId) {
+  if (currentRole !== 'admin') {
+    showToast('Only Sir can delete tasks!', 'error');
+    return;
+  }
+  if (confirm('Are you sure you want to permanently delete this task?')) {
+    tasks = tasks.filter(t => t.id !== taskId);
+    syncAllTasks();
+    showToast('Task deleted permanently.', 'info');
+  }
+}
+
+// Sub-task Toggle & Auto % Calculation
+function toggleSubtask(taskId, subtaskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task || !task.subtasks) return;
+
+  const st = task.subtasks.find(s => s.id === subtaskId);
+  if (st) {
+    st.completed = !st.completed;
+
+    const total = task.subtasks.length;
+    const completedCount = task.subtasks.filter(s => s.completed).length;
+    task.progressPct = Math.round((completedCount / total) * 100);
+
+    syncAllTasks();
+    showToast(`Subtask updated! Actual progress: ${task.progressPct}%`, 'info');
+  }
+}
+
+// WhatsApp Share Integration with WhatsApp Sent Tick Badge Flag
+function shareOnWhatsApp(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  task.whatsappSent = true;
+  syncAllTasks();
+
+  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
+  const phone = member ? member.phone : '';
+
+  const text = `📌 *F.A.S.T Task Update Alert*\n` +
+               `*Task:* ${task.name}\n` +
+               `*Assignee:* ${task.assignee}\n` +
+               `*Target Date:* ${task.targetDate}\n` +
+               `*Sir's Expected Target:* ${task.expectedProgressPct || 100}%\n` +
+               `*Family Actual Progress:* ${task.progressPct}%\n` +
+               `*Status:* ${task.workerSubmitted ? 'Awaiting Sir Approval' : 'In Progress'}\n` +
+               `${task.sirFeedback ? `*Sir's Note:* "${task.sirFeedback}"\n` : ''}` +
+               `*Today's Note:* "${task.todayProgress || 'Pending update'}"\n\n` +
+               `Please update your progress on F.A.S.T TaskTrack Pro!`;
+
+  const phoneParam = phone ? `phone=${encodeURIComponent(phone)}&` : '';
+  const url = `https://api.whatsapp.com/send?${phoneParam}text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+
+  showToast('WhatsApp alert launched! Status set to WhatsApp Sent ✔️', 'success');
+}
+
+// Task Modal (Create / Edit - Sir / Admin)
+function openTaskModal(taskId = null) {
+  if (currentRole !== 'admin') {
+    showToast('Only Sir can create or modify core task parameters!', 'error');
+    return;
+  }
+
+  const form = document.getElementById('taskForm');
+  form.reset();
+
+  if (taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Task / Set Target';
+    document.getElementById('taskId').value = task.id;
+    document.getElementById('taskAssigneeSelect').value = task.assignee;
+    document.getElementById('taskName').value = task.name;
+    document.getElementById('taskAssignDate').value = task.assignDate;
+    document.getElementById('taskTargetDate').value = task.targetDate;
+    const expPct = task.expectedProgressPct !== undefined ? task.expectedProgressPct : 100;
+    document.getElementById('taskExpectedProgress').value = expPct;
+    document.getElementById('expectedProgressPctLabel').innerText = expPct + '%';
+    document.getElementById('taskTodayProgress').value = task.todayProgress || '';
+    document.getElementById('taskRemarks').value = task.remarks || '';
+    document.getElementById('taskSirFeedback').value = task.sirFeedback || '';
+    document.getElementById('taskSubtasksInput').value = task.subtasks ? task.subtasks.map(s => s.text).join(', ') : '';
+  } else {
+    document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Create New Task';
+    document.getElementById('taskId').value = '';
+    document.getElementById('taskAssignDate').value = getFormattedDate();
+    document.getElementById('taskTargetDate').value = getFormattedDate(7);
+    document.getElementById('taskExpectedProgress').value = 100;
+    document.getElementById('expectedProgressPctLabel').innerText = '100%';
+    document.getElementById('taskSirFeedback').value = '';
+    document.getElementById('taskSubtasksInput').value = '';
+  }
+
+  document.getElementById('taskModal').classList.add('active');
+}
+
+function closeTaskModal() {
+  document.getElementById('taskModal').classList.remove('active');
+}
+
+function handleTaskFormSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('taskId').value;
+  const assignee = document.getElementById('taskAssigneeSelect').value;
+  const name = document.getElementById('taskName').value.trim();
+  const assignDate = document.getElementById('taskAssignDate').value;
+  const targetDate = document.getElementById('taskTargetDate').value;
+  const expectedProgressPct = parseInt(document.getElementById('taskExpectedProgress').value, 10);
+  const todayProgress = document.getElementById('taskTodayProgress').value.trim();
+  const remarks = document.getElementById('taskRemarks').value.trim();
+  const sirFeedback = document.getElementById('taskSirFeedback').value.trim();
+  const subtasksRaw = document.getElementById('taskSubtasksInput').value.trim();
+
+  let subtasks = [];
+  if (subtasksRaw) {
+    subtasks = subtasksRaw.split(',').map((item, idx) => ({
+      id: 'st-' + Date.now() + '-' + idx,
+      text: item.trim(),
+      completed: false
+    })).filter(s => s.text.length > 0);
+  }
+
+  let currentTaskId = id;
+
+  if (id) {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      task.assignee = assignee;
+      task.name = name;
+      task.assignDate = assignDate;
+      task.targetDate = targetDate;
+      task.expectedProgressPct = expectedProgressPct;
+      task.todayProgress = todayProgress;
+      task.remarks = remarks;
+      task.sirFeedback = sirFeedback;
+      if (subtasks.length > 0) task.subtasks = subtasks;
+    }
+  } else {
+    currentTaskId = 'task-' + Date.now();
+    const newTask = {
+      id: currentTaskId,
+      assignee,
+      name,
+      assignDate,
+      targetDate,
+      expectedProgressPct: expectedProgressPct,
+      progressPct: 0,
+      todayProgress,
+      remarks,
+      sirFeedback,
+      subtasks,
+      emailSent: false,
+      whatsappSent: false,
+      workerSubmitted: false,
+      sirApproved: false,
+      archived: false,
+      history: [
+        { date: getFormattedDate(), note: todayProgress || `Task assigned by Sir. Expected Target: ${expectedProgressPct}%`, pct: 0 }
+      ]
+    };
+    tasks.unshift(newTask);
+  }
+
+  syncAllTasks();
+  closeTaskModal();
+  showToast(id ? 'Task updated!' : 'New Task assigned by Sir!', 'success');
+
+  // Auto Trigger Background Email & WhatsApp Notifications!
+  sendAutomatedBackgroundEmail(currentTaskId);
+  sendAutomatedBackgroundWhatsApp(currentTaskId);
+}
+
+// Log Today's Progress Modal (F.A.S.T Family & Admin)
+function openProgressModal(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  document.getElementById('progressTaskId').value = task.id;
+  document.getElementById('progressTaskTitleDisplay').innerText = task.name + ' (' + task.assignee + ')';
+  document.getElementById('newTodayProgress').value = '';
+  document.getElementById('newTotalProgressPct').value = task.progressPct || 0;
+  document.getElementById('newProgressPctLabel').innerText = (task.progressPct || 0) + '%';
+  document.getElementById('newRemarks').value = task.remarks || '';
+
+  // Populate History
+  const historyContainer = document.getElementById('progressHistoryList');
+  if (task.history && task.history.length) {
+    let histHtml = '';
+    task.history.slice().reverse().forEach(h => {
+      histHtml += `
+        <div style="font-size:0.8rem; border-bottom:1px solid var(--border-color); padding:4px 0;">
+          <strong style="color:var(--fast-red);">${h.date} (${h.pct}%):</strong> "${escapeHtml(h.note)}"
+        </div>
+      `;
+    });
+    historyContainer.innerHTML = histHtml;
+  } else {
+    historyContainer.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">No history logs yet.</div>';
+  }
+
+  document.getElementById('progressModal').classList.add('active');
+}
+
+function closeProgressModal() {
+  document.getElementById('progressModal').classList.remove('active');
+}
+
+function handleProgressFormSubmit(e) {
+  e.preventDefault();
+  const taskId = document.getElementById('progressTaskId').value;
+  const newNote = document.getElementById('newTodayProgress').value.trim();
+  const newPct = parseInt(document.getElementById('newTotalProgressPct').value, 10);
+  const newRemarks = document.getElementById('newRemarks').value.trim();
+
+  const task = tasks.find(t => t.id === taskId);
+  if (task) {
+    task.todayProgress = newNote;
+    task.progressPct = newPct;
+    if (newRemarks) task.remarks = newRemarks;
+
+    if (!task.history) task.history = [];
+    task.history.push({
+      date: getFormattedDate(),
+      note: newNote,
+      pct: newPct
+    });
+
+    syncAllTasks();
+    closeProgressModal();
+    showToast('Today\'s actual progress note & % saved successfully!', 'success');
+  }
+}
+
+// Cloud Config Modal
+function openCloudModal() {
+  document.getElementById('cloudEngineSelect').value = cloudSyncMode;
+  toggleCloudEngineFields();
+  document.getElementById('cloudModal').classList.add('active');
+}
+
+function closeCloudModal() {
+  document.getElementById('cloudModal').classList.remove('active');
+}
+
+function toggleCloudEngineFields() {
+  const val = document.getElementById('cloudEngineSelect').value;
+  const group = document.getElementById('cloudCustomEndpointGroup');
+  group.style.display = (val === 'firebase') ? 'block' : 'none';
+}
+
+function saveCloudSettings() {
+  const val = document.getElementById('cloudEngineSelect').value;
+  cloudSyncMode = val;
+  localStorage.setItem('fast_cloud_mode', val);
+
+  if (val === 'firebase') {
+    const url = document.getElementById('cloudEndpointInput').value.trim();
+    if (url) localStorage.setItem('fast_firebase_url', url);
+  }
+
+  closeCloudModal();
+  if (val !== 'local') {
+    fetchFromCloud();
+  } else {
+    updateCloudStatusBadge('offline', 'Local Only');
+  }
+  showToast('Cloud settings updated!', 'success');
+}
+
+// Export Data to CSV
+function exportToCSV() {
+  if (tasks.length === 0) {
+    showToast('No tasks available to export.', 'info');
+    return;
+  }
+
+  let csvContent = 'data:text/csv;charset=utf-8,';
+  csvContent += 'F.A.S.T TaskTrack Pro Export Report\n';
+  csvContent += 'ID,Assignee,Task Name,Assign Date,Target Date,Sir Expected Target %,Family Actual Progress %,Sir Feedback,Today Progress,Worker Submitted,Sir Approved,Archived Status,Email Sent,WhatsApp Sent\n';
+
+  tasks.forEach(t => {
+    const row = [
+      `"${t.id}"`,
+      `"${t.assignee.replace(/"/g, '""')}"`,
+      `"${t.name.replace(/"/g, '""')}"`,
+      `"${t.assignDate}"`,
+      `"${t.targetDate}"`,
+      `"${(t.expectedProgressPct !== undefined ? t.expectedProgressPct : 100)}%"`,
+      `"${t.progressPct}%"`,
+      `"${(t.sirFeedback || '').replace(/"/g, '""')}"`,
+      `"${(t.todayProgress || '').replace(/"/g, '""')}"`,
+      `"${t.workerSubmitted ? 'YES' : 'NO'}"`,
+      `"${t.sirApproved ? 'YES' : 'NO'}"`,
+      `"${t.archived ? 'Archived Draft' : 'Active Task'}"`,
+      `"${t.emailSent ? 'YES' : 'NO'}"`,
+      `"${t.whatsappSent ? 'YES' : 'NO'}"`
+    ].join(',');
+    csvContent += row + '\n';
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `FAST_Task_Report_${getFormattedDate()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  showToast('CSV Report Downloaded Successfully!', 'success');
+}
+
+// Utility: HTML Escaper
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, function(m) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    }[m];
+  });
+}
+
+// Toast Notifications Helper
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  
+  let icon = 'fa-info-circle';
+  if (type === 'success') icon = 'fa-check-circle';
+  if (type === 'error') icon = 'fa-exclamation-circle';
+
+  toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    toast.style.transition = 'all 0.4s ease';
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}

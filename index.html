@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F.A.S.T TaskTrack Pro | First Attempt Success Tutorials</title>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- EmailJS SDK for Direct Background Email Dispatching -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  
+  <!-- Custom Brand Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="header-container">
+    <nav class="navbar">
+      <div class="brand-wrapper">
+        <img src="logo.png" alt="F.A.S.T Logo" class="brand-logo">
+        <div class="brand-title-box">
+          <div class="brand-title">TaskTrack <span>PRO</span></div>
+          <div class="brand-subtitle">First Attempt Success Tutorials</div>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <!-- Active User Account Badge (F.A.S.T Family View) -->
+        <div class="user-account-badge" id="userAccountBadge" onclick="openMemberLoginModal()" style="display:none;" title="Click to Switch F.A.S.T Family Account">
+          <i class="fa-solid fa-user-check"></i>
+          <span id="activeUserNameText">Priya Sharma</span>
+          <i class="fa-solid fa-arrows-rotate" style="font-size:0.7rem; opacity:0.8;"></i>
+        </div>
+
+        <!-- Cloud Sync Status Pill -->
+        <div class="cloud-status-badge" id="cloudStatusBadge" onclick="openCloudModal()" title="Cloud Realtime Sync Status">
+          <div class="cloud-dot" id="cloudDot"></div>
+          <span id="cloudStatusText">Cloud Live</span>
+        </div>
+
+        <!-- Role Switcher -->
+        <div class="role-switcher-badge">
+          <button class="role-btn active admin" id="btnRoleAdmin" onclick="switchRole('admin')">
+            <i class="fa-solid fa-user-shield"></i> Sir (Admin)
+          </button>
+          <button class="role-btn worker" id="btnRoleWorker" onclick="switchRole('worker')">
+            <i class="fa-solid fa-users"></i> F.A.S.T Family
+          </button>
+        </div>
+
+        <!-- Theme Toggle Button -->
+        <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-wrapper">
+
+    <!-- Dashboard Welcome Header -->
+    <div class="dashboard-header">
+      <div class="welcome-box">
+        <h1 id="welcomeGreeting">Task Management Dashboard</h1>
+        <p id="roleDescriptionText">Sir View: Set Expected Targets, review Actual Progress, and double-tick approval to archive completed tasks.</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-secondary" onclick="openEmailConfigModal()" title="Configure Direct Cloud Email Keys">
+          <i class="fa-solid fa-gears"></i> Email API Keys
+        </button>
+        <button class="btn-secondary" id="btnResetPinHeader" onclick="openResetPinModal()" style="display:inline-flex;" title="Reset Admin Security PIN">
+          <i class="fa-solid fa-key"></i> Reset Admin PIN
+        </button>
+        <button class="btn-secondary" onclick="exportToCSV()" title="Download CSV Report">
+          <i class="fa-solid fa-file-excel"></i> Export CSV
+        </button>
+        <button class="btn-primary" id="btnCreateTask" onclick="openTaskModal()">
+          <i class="fa-solid fa-plus-circle"></i> Create New Task
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-list-check"></i></div>
+        <div class="stat-info">
+          <h3 id="statTotalActive">0</h3>
+          <p>Active Tasks</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-progress">
+        <div class="stat-icon"><i class="fa-solid fa-spinner"></i></div>
+        <div class="stat-info">
+          <h3 id="statInProgress">0</h3>
+          <p>In Progress</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-overdue">
+        <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="stat-info">
+          <h3 id="statOverdue">0</h3>
+          <p>Overdue Tasks</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-archived">
+        <div class="stat-icon"><i class="fa-solid fa-box-archive"></i></div>
+        <div class="stat-info">
+          <h3 id="statArchived">0</h3>
+          <p>Archived Drafts</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls, Tabs & Search Bar -->
+    <div class="controls-card">
+      <div class="tabs-and-filters">
+        <!-- View Tabs -->
+        <div class="view-tabs">
+          <button class="tab-btn active" id="tabActive" onclick="switchTab('active')">
+            <i class="fa-solid fa-tasks"></i> Active Tasks (<span id="activeCountBadge">0</span>)
+          </button>
+          <button class="tab-btn" id="tabArchived" onclick="switchTab('archived')">
+            <i class="fa-solid fa-folder-closed"></i> Archived Drafts (<span id="archivedCountBadge">0</span>)
+          </button>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="filter-controls">
+          <!-- Search Bar -->
+          <div class="search-input-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" class="form-control" placeholder="Search task or family member..." oninput="renderTasks()">
+          </div>
+
+          <!-- Assignee Filter (Sir View Only) -->
+          <select id="filterAssignee" class="form-control" onchange="renderTasks()">
+            <option value="">All Family Members</option>
+          </select>
+
+          <!-- Status Filter -->
+          <select id="filterStatus" class="form-control" onchange="renderTasks()">
+            <option value="">All Statuses</option>
+            <option value="ontrack">On Track</option>
+            <option value="overdue">Overdue</option>
+            <option value="completed">100% Completed</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks Render Grid Container -->
+    <div class="tasks-grid" id="tasksContainer">
+      <!-- Dynamically generated task cards will appear here -->
+    </div>
+
+  </main>
+
+  <!-- F.A.S.T Family Member Account Selection / Login Modal -->
+  <div class="modal-overlay" id="memberLoginModal">
+    <div class="modal-container" style="max-width: 440px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-user-circle"></i> F.A.S.T Family Login</h2>
+        <button class="modal-close-btn" onclick="closeMemberLoginModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="memberLoginForm" onsubmit="handleMemberLoginSubmit(event)">
+        <div class="modal-body">
+          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.2rem;">
+            🔒 <strong>Privacy Mode:</strong> Select your F.A.S.T Family Account to access your personal task dashboard.
+          </p>
+
+          <div class="form-group">
+            <label for="loginMemberSelect"><i class="fa-solid fa-id-card"></i> Select Your Account:</label>
+            <select id="loginMemberSelect" class="form-control" required style="padding-left:12px; font-weight:700; font-size:1rem;">
+              <!-- Populated dynamically from roster -->
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeMemberLoginModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Log In to My Dashboard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create / Edit Task Modal (Sir / Admin) -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modalTitle"><i class="fa-solid fa-pen-to-square"></i> Create New Task</h2>
+        <button class="modal-close-btn" onclick="closeTaskModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="taskForm" onsubmit="handleTaskFormSubmit(event)">
+        <div class="modal-body">
+          <input type="hidden" id="taskId">
+
+          <!-- Assignee Select Dropdown + Add Member Button -->
+          <div class="form-group">
+            <label for="taskAssigneeSelect"><i class="fa-solid fa-users"></i> Select F.A.S.T Family Member</label>
+            <div class="assignee-dropdown-group">
+              <select id="taskAssigneeSelect" class="form-control" required style="padding-left:12px;">
+                <!-- Dynamically populated from Family Roster -->
+              </select>
+              <button type="button" class="btn-secondary" onclick="openMemberModal()" title="Add New Member to Roster" style="white-space:nowrap;">
+                <i class="fa-solid fa-user-plus"></i> + Add Member
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="taskName"><i class="fa-solid fa-clipboard-list"></i> Task Name (Task ka naam)</label>
+            <input type="text" id="taskName" placeholder="e.g. Prepare Class 10th Math Notes" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="taskAssignDate"><i class="fa-solid fa-calendar-plus"></i> Assign Date</label>
+              <input type="date" id="taskAssignDate" required>
+            </div>
+            <div class="form-group">
+              <label for="taskTargetDate"><i class="fa-solid fa-calendar-check"></i> Target Date</label>
+              <input type="date" id="taskTargetDate" required>
+            </div>
+          </div>
+
+          <!-- Sir's Expected Progress Target Slider -->
+          <div class="form-group">
+            <label for="taskExpectedProgress" style="color:var(--fast-charcoal); font-weight:800;">
+              <i class="fa-solid fa-bullseye"></i> Sir's Expected Target Progress (%): <span id="expectedProgressPctLabel" style="color:var(--fast-red); font-weight:800;">100%</span>
+            </label>
+            <input type="range" id="taskExpectedProgress" min="0" max="100" value="100" oninput="document.getElementById('expectedProgressPctLabel').innerText = this.value + '%'">
+            <small style="color:var(--text-muted); font-size:0.75rem;">This is the target percentage Sir expects by the Target Date.</small>
+          </div>
+
+          <!-- Sub-Tasks Breakdown Input -->
+          <div class="form-group">
+            <label for="taskSubtasksInput"><i class="fa-solid fa-list-check"></i> Sub-Task Checklist Items (Comma separated)</label>
+            <input type="text" id="taskSubtasksInput" placeholder="e.g. Chapter 1 exercises, Chapter 2 theory, Formula sheet">
+          </div>
+
+          <!-- Sir's Revision / Feedback Note Input -->
+          <div class="form-group">
+            <label for="taskSirFeedback" style="color:var(--fast-red);"><i class="fa-solid fa-user-ninja"></i> Sir's Feedback / Revision Note (If changes needed)</label>
+            <input type="text" id="taskSirFeedback" placeholder="e.g. Please add Chapter 3 MCQs before final approval.">
+          </div>
+
+          <div class="form-group">
+            <label for="taskTodayProgress"><i class="fa-solid fa-comment-dots"></i> Initial Note / Description</label>
+            <textarea id="taskTodayProgress" rows="2" placeholder="e.g. Prepare 30 MCQs per chapter..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="taskRemarks"><i class="fa-solid fa-sticky-note"></i> Remarks / Comments</label>
+            <input type="text" id="taskRemarks" placeholder="e.g. Priority task for Monday batch">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeTaskModal()">Cancel</button>
+          <button type="submit" class="btn-primary" id="btnSaveTask">Save & Notify Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Email API Keys Configuration Modal -->
+  <div class="modal-overlay" id="emailConfigModal">
+    <div class="modal-container" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-paper-plane"></i> Email API Configuration</h2>
+        <button class="modal-close-btn" onclick="closeEmailConfigModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+          Enter your free EmailJS keys to send automated emails directly into members' Gmail inboxes. (Free account at <a href="https://www.emailjs.com" target="_blank" style="color:var(--fast-red);">emailjs.com</a>).
+        </p>
+
+        <div class="form-group">
+          <label>EmailJS Service ID:</label>
+          <input type="text" id="emailServiceIdInput" placeholder="e.g. service_abcdef">
+        </div>
+        <div class="form-group">
+          <label>EmailJS Template ID:</label>
+          <input type="text" id="emailTemplateIdInput" placeholder="e.g. template_123456">
+        </div>
+        <div class="form-group">
+          <label>EmailJS Public Key:</label>
+          <input type="text" id="emailPublicKeyInput" placeholder="e.g. user_xyz12345">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeEmailConfigModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="saveEmailConfigSettings()">Save Email Keys</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direct Cloud Email Dispatch Modal -->
+  <div class="modal-overlay" id="emailModal">
+    <div class="modal-container" style="max-width: 520px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-paper-plane"></i> Send Email Alert</h2>
+        <button class="modal-close-btn" onclick="closeEmailModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="emailTaskId">
+        
+        <div class="form-group">
+          <label><i class="fa-solid fa-at"></i> To (Recipient Email):</label>
+          <input type="email" id="emailRecipientDisplay" readonly style="font-weight:700; color:var(--fast-red);">
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-heading"></i> Subject:</label>
+          <input type="text" id="emailSubjectDisplay" style="font-weight:600;">
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope-open-text"></i> Message Body:</label>
+          <textarea id="emailBodyDisplay" rows="6" style="font-family:monospace; font-size:0.85rem;"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="flex-wrap:wrap; gap:0.5rem;">
+        <button type="button" class="btn-secondary" onclick="copyEmailTextToClipboard()"><i class="fa-solid fa-copy"></i> Copy Text</button>
+        <button type="button" class="btn-secondary" onclick="openMailClient()"><i class="fa-solid fa-envelope"></i> Open Mail App</button>
+        <button type="button" class="btn-primary" onclick="dispatchDirectEmail()"><i class="fa-solid fa-paper-plane"></i> Send Direct Email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add New Member to Roster Modal -->
+  <div class="modal-overlay" id="memberModal">
+    <div class="modal-container" style="max-width: 440px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-user-plus"></i> Add New F.A.S.T Family Member</h2>
+        <button class="modal-close-btn" onclick="closeMemberModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="memberForm" onsubmit="handleMemberFormSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="newMemberName">Member Full Name:</label>
+            <input type="text" id="newMemberName" placeholder="e.g. Vikas Sir" required>
+          </div>
+          <div class="form-group">
+            <label for="newMemberEmail">Member Email Address (For Email Alerts):</label>
+            <input type="email" id="newMemberEmail" placeholder="e.g. vikas@fasttutorials.com" required>
+          </div>
+          <div class="form-group">
+            <label for="newMemberPhone">Member WhatsApp Phone Number:</label>
+            <input type="tel" id="newMemberPhone" placeholder="e.g. 9876543210">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeMemberModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Add Member to Roster</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Update Daily Progress Modal (Accessible by F.A.S.T Family & Admin) -->
+  <div class="modal-overlay" id="progressModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-clock-rotate-left"></i> Log Today's Progress</h2>
+        <button class="modal-close-btn" onclick="closeProgressModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="progressForm" onsubmit="handleProgressFormSubmit(event)">
+        <div class="modal-body">
+          <input type="hidden" id="progressTaskId">
+
+          <div class="form-group">
+            <label>Task:</label>
+            <div id="progressTaskTitleDisplay" style="font-weight:700; color:var(--fast-red); font-size:1.05rem;"></div>
+          </div>
+
+          <!-- Actual Progress Achieved by Family Slider -->
+          <div class="form-group">
+            <label for="newTotalProgressPct" style="color:var(--fast-red); font-weight:800;">
+              <i class="fa-solid fa-chart-line"></i> Actual Progress Achieved (%): <span id="newProgressPctLabel" style="color:var(--fast-red); font-weight:800;">0%</span>
+            </label>
+            <input type="range" id="newTotalProgressPct" min="0" max="100" value="0" oninput="document.getElementById('newProgressPctLabel').innerText = this.value + '%'">
+            <small style="color:var(--text-muted); font-size:0.75rem;">Family member: Update your current actual progress completed so far.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="newTodayProgress"><i class="fa-solid fa-pen-nib"></i> Today's Progress Note</label>
+            <textarea id="newTodayProgress" rows="3" placeholder="Describe work completed today..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="newRemarks"><i class="fa-solid fa-comment"></i> Remarks / Updates</label>
+            <input type="text" id="newRemarks" placeholder="Optional remarks...">
+          </div>
+
+          <!-- Progress Log History Preview -->
+          <div class="form-group">
+            <label><i class="fa-solid fa-history"></i> Progress History Logs</label>
+            <div id="progressHistoryList" style="max-height: 150px; overflow-y: auto; background: var(--bg-primary); padding: 8px; border-radius: var(--radius-md); border: 1px solid var(--border-color);"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeProgressModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Submit Progress</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin PIN Verification Modal -->
+  <div class="modal-overlay" id="pinModal">
+    <div class="modal-container" style="max-width: 380px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-lock"></i> Sir (Admin) Authentication</h2>
+        <button class="modal-close-btn" onclick="closePinModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="pinForm" onsubmit="verifyAdminPin(event)">
+        <div class="modal-body" style="text-align: center;">
+          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">Enter Security PIN to unlock Sir (Admin) Mode.</p>
+          <div class="form-group">
+            <input type="password" id="adminPinInput" placeholder="Enter PIN" maxlength="6" style="text-align:center; font-size:1.4rem; letter-spacing:4px;" required>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="justify-content: center;">
+          <button type="button" class="btn-secondary" onclick="closePinModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Unlock Admin Mode</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reset Admin PIN Modal -->
+  <div class="modal-overlay" id="resetPinModal">
+    <div class="modal-container" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-key"></i> Reset Admin Security PIN</h2>
+        <button class="modal-close-btn" onclick="closeResetPinModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="resetPinForm" onsubmit="handleResetPinSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="oldPinInput">Current Admin PIN:</label>
+            <input type="password" id="oldPinInput" placeholder="Current PIN" required>
+          </div>
+          <div class="form-group">
+            <label for="newPinInput">New Secret PIN (4-6 digits):</label>
+            <input type="password" id="newPinInput" placeholder="e.g. 5678" maxlength="6" required>
+          </div>
+          <div class="form-group">
+            <label for="confirmPinInput">Confirm New PIN:</label>
+            <input type="password" id="confirmPinInput" placeholder="Confirm PIN" maxlength="6" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeResetPinModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Save New PIN</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Cloud Sync Config Modal -->
+  <div class="modal-overlay" id="cloudModal">
+    <div class="modal-container" style="max-width: 460px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-cloud-arrow-up"></i> Multi-Device Cloud Realtime Sync</h2>
+        <button class="modal-close-btn" onclick="closeCloudModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+          This app syncs task progress live across different devices (mobiles & laptops) connected to the cloud store.
+        </p>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-server"></i> Cloud Storage Engine:</label>
+          <select id="cloudEngineSelect" class="form-control" onchange="toggleCloudEngineFields()">
+            <option value="jsonbin">Global Cloud Engine (Built-in Free Sync)</option>
+            <option value="firebase">Firebase Realtime DB (Custom Endpoint)</option>
+            <option value="local">Offline LocalStorage Only</option>
+          </select>
+        </div>
+
+        <div id="cloudCustomEndpointGroup" class="form-group" style="display:none;">
+          <label for="cloudEndpointInput"><i class="fa-solid fa-link"></i> Firebase / REST Database URL:</label>
+          <input type="text" id="cloudEndpointInput" placeholder="https://your-app-default-rtdb.firebaseio.com/tasks">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeCloudModal()">Close</button>
+        <button type="button" class="btn-primary" onclick="saveCloudSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- App Main JavaScript -->
+  <script src="app.js"></script>
+</body>
+</html>
