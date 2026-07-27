@@ -739,7 +739,7 @@ function updateStats() {
   document.getElementById('archivedCountBadge').innerText = totalArchived;
 }
 
-// Render Task Cards Grid
+// Ultra-Clean Render Task Cards Grid
 function renderTasks() {
   const container = document.getElementById('tasksContainer');
   if (!container) return;
@@ -794,34 +794,34 @@ function renderTasks() {
     const isWorkerSubmitted = task.workerSubmitted && !task.sirApproved && !task.archived;
     const isCompleted = actualPct >= expectedPct;
     
-    let targetBadgeClass = 'badge-ontrack';
+    let targetBadgeClass = 'ontrack';
     let targetBadgeText = 'On Track';
     
     if (isWorkerSubmitted) {
-      targetBadgeClass = 'badge-submitted';
-      targetBadgeText = '🟡 Awaiting Sir\'s Approval';
+      targetBadgeClass = 'submitted';
+      targetBadgeText = 'Awaiting Approval';
     } else if (isOverdue) {
-      targetBadgeClass = 'badge-overdue';
-      targetBadgeText = 'OVERDUE';
+      targetBadgeClass = 'overdue';
+      targetBadgeText = 'Overdue';
     } else if (isCompleted && !task.archived) {
-      targetBadgeClass = 'badge-ontrack';
-      targetBadgeText = 'Target Achieved! 🎯';
+      targetBadgeClass = 'ontrack';
+      targetBadgeText = '100% Completed';
     }
 
     let subtasksHtml = '';
     if (task.subtasks && task.subtasks.length > 0) {
       const doneCount = task.subtasks.filter(st => st.completed).length;
       subtasksHtml += `
-        <div class="subtasks-section">
-          <div class="subtasks-header">
+        <div class="subtasks-clean-box">
+          <div class="subtasks-title-clean">
             <span>Checklist</span>
-            <span>${doneCount}/${task.subtasks.length} Done</span>
+            <span>${doneCount}/${task.subtasks.length}</span>
           </div>
       `;
       task.subtasks.forEach(st => {
         subtasksHtml += `
-          <div class="subtask-item ${st.completed ? 'completed' : ''}" onclick="toggleSubtask('${task.id}', '${st.id}')">
-            <input type="checkbox" ${st.completed ? 'checked' : ''} onclick="event.stopPropagation(); toggleSubtask('${task.id}', '${st.id}')">
+          <div class="subtask-line ${st.completed ? 'completed' : ''}" onclick="toggleSubtask('${task.id}', '${st.id}')">
+            <i class="fa-regular ${st.completed ? 'fa-square-check' : 'fa-square'}" style="color:${st.completed ? '#10B981' : 'var(--text-subtle)'}"></i>
             <span>${escapeHtml(st.text)}</span>
           </div>
         `;
@@ -829,127 +829,99 @@ function renderTasks() {
       subtasksHtml += `</div>`;
     }
 
+    const hasRealProgressNote = task.todayProgress && task.todayProgress.trim().length > 0 && task.todayProgress !== "No progress notes logged yet.";
+
     html += `
       <div class="task-card ${isOverdue ? 'is-overdue' : ''} ${isWorkerSubmitted ? 'is-submitted' : ''} ${task.archived ? 'is-archived' : ''}">
         <div>
-          <div class="task-card-header">
-            <span class="assignee-chip"><i class="fa-solid fa-user"></i> ${escapeHtml(task.assignee)}</span>
+          <div class="card-header-clean">
+            <span class="assignee-badge-clean"><i class="fa-solid fa-user"></i> ${escapeHtml(task.assignee)}</span>
             
-            <div class="task-actions-top">
+            <div class="card-actions-clean">
               ${task.emailSent ? `
-                <span class="badge-email-sent" title="Email Notification Delivered to Inbox">
-                  <i class="fa-solid fa-envelope-circle-check"></i> Email Sent ✔️
-                </span>
+                <span class="action-pill-btn sent" title="Email Sent"><i class="fa-solid fa-check"></i> Email</span>
               ` : `
-                <button class="btn-email-alert" onclick="openEmailModal('${task.id}')" title="Send Official Email Notification Alert">
-                  <i class="fa-solid fa-envelope"></i> Email
-                </button>
+                <button class="action-pill-btn" onclick="openEmailModal('${task.id}')" title="Send Email"><i class="fa-solid fa-envelope"></i> Email</button>
               `}
 
               ${task.whatsappSent ? `
-                <span class="badge-whatsapp-sent" title="WhatsApp Alert Delivered">
-                  <i class="fa-brands fa-whatsapp"></i> WhatsApp Sent ✔️
-                </span>
+                <span class="action-pill-btn sent" title="WhatsApp Sent"><i class="fa-solid fa-check"></i> WhatsApp</span>
               ` : `
-                <button class="btn-whatsapp" onclick="shareOnWhatsApp('${task.id}')" title="Send WhatsApp Alert">
-                  <i class="fa-brands fa-whatsapp"></i> WhatsApp
-                </button>
+                <button class="action-pill-btn" onclick="shareOnWhatsApp('${task.id}')" title="WhatsApp Alert"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
               `}
 
               ${!task.archived ? `
                 ${currentRole === 'admin' ? `
-                  <button class="btn-tick-archive" onclick="sirApproveAndArchive('${task.id}')" title="Sir's Approval: Click tick mark to approve & archive task to drafts!">
-                    <i class="fa-solid fa-check-double"></i>
+                  <button class="btn-tick-double" onclick="sirApproveAndArchive('${task.id}')" title="Sir's Tick Approval: Click to approve & archive to drafts!">
+                    <i class="fa-solid fa-check"></i>
                   </button>
-                  <button class="btn-icon" onclick="openTaskModal('${task.id}')" title="Edit Task / Set Target (Sir)">
-                    <i class="fa-solid fa-pen"></i>
-                  </button>
-                  <button class="btn-icon" onclick="deleteTask('${task.id}')" title="Delete Task">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
+                  <button class="btn-icon-subtle" onclick="openTaskModal('${task.id}')" title="Edit Task"><i class="fa-solid fa-pen"></i></button>
+                  <button class="btn-icon-subtle" onclick="deleteTask('${task.id}')" title="Delete Task"><i class="fa-solid fa-trash"></i></button>
                 ` : `
                   ${!task.workerSubmitted ? `
-                    <button class="btn-worker-submit" onclick="workerSubmitTask('${task.id}')" title="Mark Task Complete & Send for Sir's Approval">
-                      <i class="fa-solid fa-check"></i> Submit to Sir
-                    </button>
-                  ` : `
-                    <span class="target-badge badge-submitted" style="font-size:0.75rem;"><i class="fa-solid fa-clock"></i> Sent to Sir</span>
-                  `}
+                    <button class="action-pill-btn" style="background:var(--fast-red); color:white; border:none;" onclick="workerSubmitTask('${task.id}')">Submit</button>
+                  ` : ''}
                 `}
               ` : `
                 ${currentRole === 'admin' ? `
-                  <button class="btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" onclick="restoreTask('${task.id}')" title="Restore to Active Tasks">
-                    <i class="fa-solid fa-rotate-left"></i> Restore
-                  </button>
-                  <button class="btn-icon" onclick="deleteTask('${task.id}')" title="Delete Archived Task">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                ` : '<span style="font-size:0.78rem; color:var(--text-muted); font-weight:700;"><i class="fa-solid fa-box-archive"></i> Approved & Archived</span>'}
+                  <button class="action-pill-btn" onclick="restoreTask('${task.id}')">Restore</button>
+                  <button class="btn-icon-subtle" onclick="deleteTask('${task.id}')"><i class="fa-solid fa-trash"></i></button>
+                ` : ''}
               `}
             </div>
           </div>
 
-          <h3 class="task-title">${escapeHtml(task.name)}</h3>
+          <h3 class="task-title-clean">${escapeHtml(task.name)}</h3>
 
-          <div class="task-dates-row">
-            <div class="date-item" title="Assign Date">
-              <i class="fa-solid fa-calendar-plus"></i> ${task.assignDate}
-            </div>
-            <div class="date-item" title="Target Date">
-              <i class="fa-solid fa-flag-checkered"></i> Due: ${task.targetDate}
-            </div>
-            <div>
-              <span class="target-badge ${targetBadgeClass}">${targetBadgeText}</span>
-            </div>
+          <div class="task-meta-row">
+            <div class="meta-pill"><i class="fa-regular fa-calendar"></i> ${task.assignDate}</div>
+            <div class="meta-pill"><i class="fa-solid fa-flag-checkered"></i> Due: ${task.targetDate}</div>
+            <span class="status-badge-pill ${targetBadgeClass}">${targetBadgeText}</span>
           </div>
 
-          <div class="progress-section">
-            <div class="dual-progress-labels">
-              <span class="expected-tag" title="Set by Sir"><i class="fa-solid fa-bullseye"></i> Sir's Expected: <strong>${expectedPct}%</strong></span>
-              <span class="actual-tag" title="Updated by Family Member"><i class="fa-solid fa-chart-line"></i> Family Actual: <strong>${actualPct}%</strong></span>
+          <div class="progress-clean-container">
+            <div class="progress-header-clean">
+              <span>Progress</span>
+              <span>${actualPct}% ${expectedPct !== 100 ? `(Target: ${expectedPct}%)` : ''}</span>
             </div>
-            <div class="progress-bar-outer">
-              <div class="progress-bar-inner" style="width: ${Math.min(actualPct, 100)}%;"></div>
+            <div class="progress-track-clean">
+              <div class="progress-fill-clean" style="width: ${Math.min(actualPct, 100)}%;"></div>
             </div>
           </div>
 
           ${task.sirFeedback ? `
-            <div class="sir-feedback-box">
-              <div class="sir-feedback-header">
-                <i class="fa-solid fa-user-ninja"></i> Sir's Revision / Feedback Note:
-              </div>
-              <div class="sir-feedback-text">
-                "${escapeHtml(task.sirFeedback)}"
-              </div>
+            <div class="note-box-clean" style="border-left-color:#F59E0B; background:rgba(245,158,11,0.06);">
+              <div class="note-title-clean" style="color:#B45309;">Sir's Note:</div>
+              "${escapeHtml(task.sirFeedback)}"
             </div>
           ` : ''}
 
           ${subtasksHtml}
 
-          <div class="today-note-box">
-            <div class="today-note-title">
-              <span>Today's Progress</span>
-              <span style="font-size:0.7rem; font-weight:normal;">${task.history && task.history.length ? task.history[task.history.length - 1].date : ''}</span>
+          ${hasRealProgressNote ? `
+            <div class="note-box-clean">
+              <div class="note-title-clean">
+                <span>Today's Progress</span>
+                <span>${task.history && task.history.length ? task.history[task.history.length - 1].date : ''}</span>
+              </div>
+              "${escapeHtml(task.todayProgress)}"
             </div>
-            <div class="today-note-content">
-              "${escapeHtml(task.todayProgress || 'No progress notes logged yet.')}"
-            </div>
-          </div>
+          ` : ''}
 
           ${task.remarks ? `
-            <div class="remarks-text">
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">
               <strong>Remarks:</strong> ${escapeHtml(task.remarks)}
             </div>
           ` : ''}
         </div>
 
-        <div class="task-footer">
-          <button class="btn-update-progress" onclick="openProgressModal('${task.id}')">
-            <i class="fa-solid fa-plus-circle"></i> Log Progress Note
+        <div class="card-footer-clean">
+          <button class="btn-update-mini" onclick="openProgressModal('${task.id}')">
+            <i class="fa-solid fa-plus-circle"></i> Log Progress
           </button>
           
-          <span style="font-size:0.75rem; color:var(--text-muted);">
-            History: ${task.history ? task.history.length : 0} logs
+          <span style="font-size:0.72rem; color:var(--text-subtle); font-weight:700;">
+            ${task.history ? task.history.length : 0} logs
           </span>
         </div>
       </div>
