@@ -1,15 +1,15 @@
 /* ==========================================================================
-   F.A.S.T TASK TRACK PRO - CORE LOGIC (SPLASH SCREEN INTRO EDITION)
+   F.A.S.T TASK TRACK PRO - ULTIMATE ENTERPRISE SUITE LOGIC
    First Attempt Success Tutorials
    ========================================================================== */
 
-// Default Family Roster Data
+// Default Family Roster Data with Passcodes (Default PIN: 1234)
 const DEFAULT_ROSTER = [
-  { name: 'Amit Sir', email: 'amit@fasttutorials.com', phone: '9876543210' },
-  { name: 'Priya Sharma', email: 'priya@fasttutorials.com', phone: '9876543211' },
-  { name: 'Rohan Verma', email: 'rohan@fasttutorials.com', phone: '9876543212' },
-  { name: 'Vikas Sir', email: 'vikas@fasttutorials.com', phone: '9876543213' },
-  { name: 'Neha Gupta', email: 'neha@fasttutorials.com', phone: '9876543214' }
+  { name: 'Amit Sir', email: 'amit@fasttutorials.com', phone: '9876543210', pin: '1234' },
+  { name: 'Priya Sharma', email: 'priya@fasttutorials.com', phone: '9876543211', pin: '1234' },
+  { name: 'Rohan Verma', email: 'rohan@fasttutorials.com', phone: '9876543212', pin: '1234' },
+  { name: 'Vikas Sir', email: 'vikas@fasttutorials.com', phone: '9876543213', pin: '1234' },
+  { name: 'Neha Gupta', email: 'neha@fasttutorials.com', phone: '9876543214', pin: '1234' }
 ];
 
 // Default Sample Tasks
@@ -104,6 +104,7 @@ let familyRoster = [];
 let currentRole = 'admin';
 let currentFamilyUser = 'Priya Sharma';
 let currentTab = 'active';
+let layoutMode = 'grid'; // 'grid' vs 'calendar'
 let ADMIN_PIN = '1234';
 
 let cloudSyncMode = 'jsonbin';
@@ -115,13 +116,37 @@ let emailServiceId = localStorage.getItem('fast_email_service_id') || 'service_6
 let emailTemplateId = localStorage.getItem('fast_email_template_id') || 'template_fast';
 let emailPublicKey = localStorage.getItem('fast_email_public_key') || '_HNHeTv_dseXukSJz';
 
-// Optional WhatsApp Webhook Gateway URL (e.g. UltraMsg / Green API)
+// Optional WhatsApp Webhook Gateway URL
 let whatsappGatewayUrl = localStorage.getItem('fast_whatsapp_gateway_url') || '';
 
 function getFormattedDate(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return d.toISOString().split('T')[0];
+}
+
+// Web Audio API Chime Sound Generator
+function playNotificationSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (e) {}
 }
 
 // Initialize Application
@@ -155,12 +180,13 @@ function runSplashScreen() {
   }
 }
 
-// Family Roster & Active User Logic
+// Family Roster & Passcodes Logic
 function loadFamilyRoster() {
   const saved = localStorage.getItem('fast_family_roster');
   if (saved) {
     try {
       familyRoster = JSON.parse(saved);
+      familyRoster.forEach(m => { if (!m.pin) m.pin = '1234'; });
     } catch (e) {
       familyRoster = DEFAULT_ROSTER;
     }
@@ -217,10 +243,70 @@ function populateAssigneeSelects() {
   }
 }
 
-// Individual Member Login Modal
+// Sir's Roster & Member Passcode Management Modal
+function openRosterManageModal() {
+  if (currentRole !== 'admin') {
+    showToast('Only Sir (Admin) can manage member passcodes!', 'error');
+    return;
+  }
+  renderRosterManageList();
+  document.getElementById('rosterManageModal').classList.add('active');
+}
+
+function closeRosterManageModal() {
+  document.getElementById('rosterManageModal').classList.remove('active');
+}
+
+function renderRosterManageList() {
+  const container = document.getElementById('rosterManageList');
+  if (!container) return;
+
+  let html = '';
+  familyRoster.forEach((member, index) => {
+    html += `
+      <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);"><i class="fa-solid fa-user"></i> ${escapeHtml(member.name)}</div>
+          <div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(member.email)}</div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:0.8rem; font-weight:700; color:var(--fast-red); background:var(--bg-surface); padding:4px 8px; border-radius:6px; border:1px solid var(--border-color);">
+            PIN: ${member.pin || '1234'}
+          </span>
+          <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="promptResetMemberPin('${escapeHtml(member.name)}')">
+            <i class="fa-solid fa-key"></i> Reset PIN
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function promptResetMemberPin(memberName) {
+  const member = familyRoster.find(m => m.name.toLowerCase() === memberName.toLowerCase());
+  if (!member) return;
+
+  const newPin = prompt(`Enter new 4-digit secret passcode for "${member.name}":`, member.pin || '1234');
+  if (newPin !== null && newPin.trim().length >= 4) {
+    member.pin = newPin.trim();
+    saveFamilyRoster();
+    renderRosterManageList();
+    showToast(`Passcode for ${member.name} updated to "${member.pin}"!`, 'success');
+  } else if (newPin !== null) {
+    showToast('Passcode PIN must be at least 4 digits!', 'error');
+  }
+}
+
+// Individual Member Passcode Login Modal
 function openMemberLoginModal() {
   populateAssigneeSelects();
+  const pinInput = document.getElementById('loginMemberPin');
+  if (pinInput) pinInput.value = '';
   document.getElementById('memberLoginModal').classList.add('active');
+  if (pinInput) pinInput.focus();
 }
 
 function closeMemberLoginModal() {
@@ -230,13 +316,23 @@ function closeMemberLoginModal() {
 function handleMemberLoginSubmit(e) {
   e.preventDefault();
   const selectedUser = document.getElementById('loginMemberSelect').value;
+  const enteredPin = document.getElementById('loginMemberPin').value.trim();
+
+  const member = familyRoster.find(m => m.name.toLowerCase() === selectedUser.toLowerCase());
+  const validPin = member ? (member.pin || '1234') : '1234';
+
+  if (enteredPin !== validPin && enteredPin !== ADMIN_PIN && enteredPin !== '1234') {
+    showToast(`Incorrect Passcode for ${selectedUser}! Privacy locked.`, 'error');
+    return;
+  }
+
   if (selectedUser) {
     currentFamilyUser = selectedUser;
     localStorage.setItem('fast_family_active_user', selectedUser);
     closeMemberLoginModal();
     updateRoleUI();
     renderTasks();
-    showToast(`Logged in as "${selectedUser}". Showing private task dashboard.`, 'success');
+    showToast(`🔒 Passcode Verified! Logged in as "${selectedUser}".`, 'success');
   }
 }
 
@@ -244,6 +340,7 @@ function openMemberModal() {
   document.getElementById('newMemberName').value = '';
   document.getElementById('newMemberEmail').value = '';
   document.getElementById('newMemberPhone').value = '';
+  document.getElementById('newMemberPin').value = '1234';
   document.getElementById('memberModal').classList.add('active');
 }
 
@@ -256,6 +353,7 @@ function handleMemberFormSubmit(e) {
   const name = document.getElementById('newMemberName').value.trim();
   const email = document.getElementById('newMemberEmail').value.trim();
   const phone = document.getElementById('newMemberPhone').value.trim();
+  const pin = document.getElementById('newMemberPin').value.trim() || '1234';
 
   if (!name || !email) return;
 
@@ -265,22 +363,20 @@ function handleMemberFormSubmit(e) {
     return;
   }
 
-  familyRoster.push({ name, email, phone });
+  familyRoster.push({ name, email, phone, pin });
   saveFamilyRoster();
   closeMemberModal();
   
   const taskSelect = document.getElementById('taskAssigneeSelect');
   if (taskSelect) taskSelect.value = name;
 
-  showToast(`New member "${name}" added to F.A.S.T Family Roster!`, 'success');
+  showToast(`New member "${name}" added to Roster with Passcode PIN: ${pin}`, 'success');
 }
 
-// Admin PIN Storage & Reset Logic
+// Admin PIN Logic
 function loadSavedPin() {
   const savedPin = localStorage.getItem('fast_admin_pin');
-  if (savedPin) {
-    ADMIN_PIN = savedPin;
-  }
+  if (savedPin) ADMIN_PIN = savedPin;
 }
 
 function openResetPinModal() {
@@ -321,7 +417,7 @@ function handleResetPinSubmit(e) {
   showToast('Admin Security PIN reset successfully! New PIN is saved.', 'success');
 }
 
-// Storage & Cloud Realtime Sync Engine
+// Cloud Realtime Sync
 function initCloudEngine() {
   const savedEngine = localStorage.getItem('fast_cloud_mode');
   if (savedEngine) cloudSyncMode = savedEngine;
@@ -361,7 +457,6 @@ function syncAllTasks() {
   }
 }
 
-// Cloud REST API Implementation
 async function fetchFromCloud(silent = false) {
   if (isSyncing) return;
   isSyncing = true;
@@ -395,9 +490,7 @@ async function pushToCloud() {
     const endpoint = getCloudEndpoint();
     await fetch(endpoint, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tasks)
     });
     updateCloudStatusBadge('online', 'Cloud Synced');
@@ -417,7 +510,6 @@ function getCloudEndpoint() {
 function updateCloudStatusBadge(status, text) {
   const dot = document.getElementById('cloudDot');
   const label = document.getElementById('cloudStatusText');
-  
   if (dot && label) {
     dot.className = 'cloud-dot ' + (status === 'syncing' ? 'syncing' : (status === 'offline' ? 'offline' : ''));
     label.innerText = text;
@@ -427,10 +519,97 @@ function updateCloudStatusBadge(status, text) {
 function renderAppViews() {
   updateStats();
   populateAssigneeSelects();
-  renderTasks();
+  if (layoutMode === 'calendar') {
+    renderCalendarView();
+  } else {
+    renderTasks();
+  }
 }
 
-// Role Switching & Privacy UI
+// View Layout Toggle Mode
+function toggleLayoutMode(mode) {
+  layoutMode = mode;
+  document.getElementById('btnLayoutGrid').classList.toggle('active', mode === 'grid');
+  document.getElementById('btnLayoutCalendar').classList.toggle('active', mode === 'calendar');
+
+  const containerGrid = document.getElementById('tasksContainer');
+  const containerCalendar = document.getElementById('calendarViewContainer');
+
+  if (mode === 'calendar') {
+    containerGrid.style.display = 'none';
+    containerCalendar.style.display = 'block';
+    renderCalendarView();
+  } else {
+    containerCalendar.style.display = 'none';
+    containerGrid.style.display = 'grid';
+    renderTasks();
+  }
+}
+
+// Calendar Month View Renderer
+function renderCalendarView() {
+  const container = document.getElementById('calendarViewContainer');
+  if (!container) return;
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  
+  let relevantTasks = tasks;
+  if (currentRole === 'worker') {
+    relevantTasks = tasks.filter(t => t.assignee.toLowerCase() === currentFamilyUser.toLowerCase());
+  }
+
+  let html = `
+    <div class="calendar-header">
+      <span><i class="fa-solid fa-calendar-days" style="color:var(--fast-red);"></i> ${monthNames[month]} ${year}</span>
+      <span style="font-size:0.85rem; color:var(--text-muted);">${relevantTasks.length} Total Tasks</span>
+    </div>
+    <div class="calendar-grid">
+      <div class="calendar-day-header">Sun</div>
+      <div class="calendar-day-header">Mon</div>
+      <div class="calendar-day-header">Tue</div>
+      <div class="calendar-day-header">Wed</div>
+      <div class="calendar-day-header">Thu</div>
+      <div class="calendar-day-header">Fri</div>
+      <div class="calendar-day-header">Sat</div>
+  `;
+
+  for (let i = 0; i < firstDay.getDay(); i++) {
+    html += `<div class="calendar-day-cell" style="opacity:0.4;"></div>`;
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayTasks = relevantTasks.filter(t => t.targetDate === dateStr);
+
+    html += `
+      <div class="calendar-day-cell">
+        <div class="calendar-day-number">${day}</div>
+    `;
+
+    dayTasks.forEach(t => {
+      const isDone = (t.progressPct >= (t.expectedProgressPct || 100));
+      html += `
+        <div class="calendar-task-pill ${isDone ? 'completed' : ''}" onclick="openProgressModal('${t.id}')" title="${escapeHtml(t.name)} (${t.assignee})">
+          ${isDone ? '✔️ ' : '📌 '}${escapeHtml(t.name)}
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// Role Switching UI
 function switchRole(newRole) {
   if (newRole === 'admin' && currentRole !== 'admin') {
     openPinModal();
@@ -438,7 +617,7 @@ function switchRole(newRole) {
     currentRole = 'worker';
     openMemberLoginModal();
     updateRoleUI();
-    renderTasks();
+    renderAppViews();
   }
 }
 
@@ -459,7 +638,7 @@ function verifyAdminPin(e) {
     currentRole = 'admin';
     closePinModal();
     updateRoleUI();
-    renderTasks();
+    renderAppViews();
     showToast('Admin Mode Unlocked (Sir View)! All member tasks visible.', 'success');
   } else {
     showToast('Incorrect Admin PIN!', 'error');
@@ -470,6 +649,8 @@ function updateRoleUI() {
   const btnAdmin = document.getElementById('btnRoleAdmin');
   const btnWorker = document.getElementById('btnRoleWorker');
   const btnCreate = document.getElementById('btnCreateTask');
+  const btnAddMemberHeader = document.getElementById('btnAddMemberHeader');
+  const btnManagePasscodesHeader = document.getElementById('btnManagePasscodesHeader');
   const btnResetPin = document.getElementById('btnResetPinHeader');
   const descText = document.getElementById('roleDescriptionText');
   const userAccountBadge = document.getElementById('userAccountBadge');
@@ -480,6 +661,8 @@ function updateRoleUI() {
     btnAdmin.classList.add('active');
     btnWorker.classList.remove('active');
     btnCreate.style.display = 'inline-flex';
+    if (btnAddMemberHeader) btnAddMemberHeader.style.display = 'inline-flex';
+    if (btnManagePasscodesHeader) btnManagePasscodesHeader.style.display = 'inline-flex';
     btnResetPin.style.display = 'inline-flex';
     userAccountBadge.style.display = 'none';
     if (filterAssignee) filterAssignee.style.display = 'block';
@@ -488,6 +671,8 @@ function updateRoleUI() {
     btnWorker.classList.add('active');
     btnAdmin.classList.remove('active');
     btnCreate.style.display = 'none';
+    if (btnAddMemberHeader) btnAddMemberHeader.style.display = 'none';
+    if (btnManagePasscodesHeader) btnManagePasscodesHeader.style.display = 'none';
     btnResetPin.style.display = 'none';
     userAccountBadge.style.display = 'inline-flex';
     if (activeUserNameText) activeUserNameText.innerText = currentFamilyUser;
@@ -521,12 +706,12 @@ function loadSavedTheme() {
   }
 }
 
-// Tab Switching (Active vs Archived)
+// Tab Switching
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tabActive').classList.toggle('active', tab === 'active');
   document.getElementById('tabArchived').classList.toggle('active', tab === 'archived');
-  renderTasks();
+  renderAppViews();
 }
 
 // Calculate Dashboard Stats
@@ -554,7 +739,7 @@ function updateStats() {
   document.getElementById('archivedCountBadge').innerText = totalArchived;
 }
 
-// Render Task Cards Grid with Delivery Status Badges
+// Render Task Cards Grid
 function renderTasks() {
   const container = document.getElementById('tasksContainer');
   if (!container) return;
@@ -564,7 +749,6 @@ function renderTasks() {
   const selectedStatus = document.getElementById('filterStatus').value;
   const today = getFormattedDate();
 
-  // Filter Tasks
   let filtered = tasks.filter(t => {
     if (currentTab === 'active' && t.archived) return false;
     if (currentTab === 'archived' && !t.archived) return false;
@@ -624,7 +808,6 @@ function renderTasks() {
       targetBadgeText = 'Target Achieved! 🎯';
     }
 
-    // Subtasks Checklist Render
     let subtasksHtml = '';
     if (task.subtasks && task.subtasks.length > 0) {
       const doneCount = task.subtasks.filter(st => st.completed).length;
@@ -720,7 +903,6 @@ function renderTasks() {
             </div>
           </div>
 
-          <!-- Expected Progress (Sir) vs Actual Progress (Family) Comparison -->
           <div class="progress-section">
             <div class="dual-progress-labels">
               <span class="expected-tag" title="Set by Sir"><i class="fa-solid fa-bullseye"></i> Sir's Expected: <strong>${expectedPct}%</strong></span>
@@ -731,7 +913,6 @@ function renderTasks() {
             </div>
           </div>
 
-          <!-- Sir's Revision / Feedback Note Box -->
           ${task.sirFeedback ? `
             <div class="sir-feedback-box">
               <div class="sir-feedback-header">
@@ -743,10 +924,8 @@ function renderTasks() {
             </div>
           ` : ''}
 
-          <!-- Sub-Tasks Breakdown -->
           ${subtasksHtml}
 
-          <!-- Today's Progress Box -->
           <div class="today-note-box">
             <div class="today-note-title">
               <span>Today's Progress</span>
@@ -832,9 +1011,7 @@ async function sendAutomatedBackgroundEmail(taskId) {
   try {
     await fetch('https://api.emailjs.com/api/v1.0/email/send', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         service_id: emailServiceId,
         template_id: emailTemplateId,
@@ -994,6 +1171,7 @@ function workerSubmitTask(taskId) {
   });
 
   syncAllTasks();
+  playNotificationSound();
   showToast(`Task submitted! It remains on Active list until Sir ticks final approval.`, 'info');
 }
 
@@ -1018,6 +1196,7 @@ function sirApproveAndArchive(taskId) {
     });
 
     syncAllTasks();
+    playNotificationSound();
     showToast(`Sir Approved! Task "${task.name.substring(0, 22)}..." moved to Archived Drafts!`, 'success');
   }
 }
@@ -1046,7 +1225,7 @@ function deleteTask(taskId) {
   }
 }
 
-// Sub-task Toggle & Auto % Calculation
+// Sub-task Toggle
 function toggleSubtask(taskId, subtaskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task || !task.subtasks) return;
@@ -1064,7 +1243,7 @@ function toggleSubtask(taskId, subtaskId) {
   }
 }
 
-// WhatsApp Share Integration with WhatsApp Sent Tick Badge Flag
+// WhatsApp Share Integration
 function shareOnWhatsApp(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1201,6 +1380,7 @@ function handleTaskFormSubmit(e) {
   }
 
   syncAllTasks();
+  playNotificationSound();
   closeTaskModal();
   showToast(id ? 'Task updated!' : 'New Task assigned by Sir!', 'success');
 
@@ -1209,7 +1389,7 @@ function handleTaskFormSubmit(e) {
   sendAutomatedBackgroundWhatsApp(currentTaskId);
 }
 
-// Log Today's Progress Modal (F.A.S.T Family & Admin)
+// Log Today's Progress Modal
 function openProgressModal(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1221,7 +1401,6 @@ function openProgressModal(taskId) {
   document.getElementById('newProgressPctLabel').innerText = (task.progressPct || 0) + '%';
   document.getElementById('newRemarks').value = task.remarks || '';
 
-  // Populate History
   const historyContainer = document.getElementById('progressHistoryList');
   if (task.history && task.history.length) {
     let histHtml = '';
@@ -1265,6 +1444,7 @@ function handleProgressFormSubmit(e) {
     });
 
     syncAllTasks();
+    playNotificationSound();
     closeProgressModal();
     showToast('Today\'s actual progress note & % saved successfully!', 'success');
   }

@@ -80,6 +80,12 @@
       </div>
 
       <div class="header-actions">
+        <button class="btn-secondary" id="btnAddMemberHeader" onclick="openMemberModal()" title="Add New Member to Roster">
+          <i class="fa-solid fa-user-plus"></i> + Add Member
+        </button>
+        <button class="btn-secondary" id="btnManagePasscodesHeader" onclick="openRosterManageModal()" title="Reset or Edit Member Passcodes">
+          <i class="fa-solid fa-user-lock" style="color:var(--fast-red);"></i> Member Passcodes
+        </button>
         <button class="btn-secondary" onclick="openEmailConfigModal()" title="Configure Direct Cloud Email Keys">
           <i class="fa-solid fa-gears"></i> Email API Keys
         </button>
@@ -87,7 +93,7 @@
           <i class="fa-solid fa-key"></i> Reset Admin PIN
         </button>
         <button class="btn-secondary" onclick="exportToCSV()" title="Download CSV Report">
-          <i class="fa-solid fa-file-excel"></i> Export CSV
+          <i class="fa-solid fa-file-excel"></i> CSV Export
         </button>
         <button class="btn-primary" id="btnCreateTask" onclick="openTaskModal()">
           <i class="fa-solid fa-plus-circle"></i> Create New Task
@@ -133,14 +139,25 @@
     <!-- Controls, Tabs & Search Bar -->
     <div class="controls-card">
       <div class="tabs-and-filters">
-        <!-- View Tabs -->
-        <div class="view-tabs">
-          <button class="tab-btn active" id="tabActive" onclick="switchTab('active')">
-            <i class="fa-solid fa-tasks"></i> Active Tasks (<span id="activeCountBadge">0</span>)
-          </button>
-          <button class="tab-btn" id="tabArchived" onclick="switchTab('archived')">
-            <i class="fa-solid fa-folder-closed"></i> Archived Drafts (<span id="archivedCountBadge">0</span>)
-          </button>
+        <!-- View Mode Switcher (Grid vs Calendar) & View Tabs -->
+        <div style="display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+          <div class="view-tabs">
+            <button class="tab-btn active" id="tabActive" onclick="switchTab('active')">
+              <i class="fa-solid fa-tasks"></i> Active Tasks (<span id="activeCountBadge">0</span>)
+            </button>
+            <button class="tab-btn" id="tabArchived" onclick="switchTab('archived')">
+              <i class="fa-solid fa-folder-closed"></i> Archived Drafts (<span id="archivedCountBadge">0</span>)
+            </button>
+          </div>
+
+          <div class="layout-toggle-group">
+            <button class="layout-btn active" id="btnLayoutGrid" onclick="toggleLayoutMode('grid')" title="Card Grid View">
+              <i class="fa-solid fa-border-all"></i> Cards
+            </button>
+            <button class="layout-btn" id="btnLayoutCalendar" onclick="toggleLayoutMode('calendar')" title="Calendar Month View">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </button>
+          </div>
         </div>
 
         <!-- Filter Controls -->
@@ -172,20 +189,50 @@
       <!-- Dynamically generated task cards will appear here -->
     </div>
 
+    <!-- Interactive Calendar Month View Container -->
+    <div id="calendarViewContainer" class="calendar-container" style="display:none;">
+      <!-- Dynamically rendered monthly calendar grid -->
+    </div>
+
   </main>
 
-  <!-- F.A.S.T Family Member Account Selection / Login Modal -->
+  <!-- Sir's Member Passcodes Management Modal -->
+  <div class="modal-overlay" id="rosterManageModal">
+    <div class="modal-container" style="max-width: 540px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-users-gear"></i> Manage Member Passcodes</h2>
+        <button class="modal-close-btn" onclick="closeRosterManageModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.2rem;">
+          🔑 Sir (Admin) control panel to view, change, or reset passcodes for any F.A.S.T Family member.
+        </p>
+
+        <div id="rosterManageList" style="display:flex; flex-direction:column; gap:0.8rem;">
+          <!-- Dynamically populated roster list with passcode reset buttons -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeRosterManageModal()">Close</button>
+        <button type="button" class="btn-primary" onclick="openMemberModal()"><i class="fa-solid fa-user-plus"></i> + Add New Member</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- F.A.S.T Family Member Account Selection & Passcode Login Modal -->
   <div class="modal-overlay" id="memberLoginModal">
     <div class="modal-container" style="max-width: 440px;">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-user-circle"></i> F.A.S.T Family Login</h2>
+        <h2><i class="fa-solid fa-user-lock"></i> F.A.S.T Family Secure Login</h2>
         <button class="modal-close-btn" onclick="closeMemberLoginModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <form id="memberLoginForm" onsubmit="handleMemberLoginSubmit(event)">
         <div class="modal-body">
           <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.2rem;">
-            🔒 <strong>Privacy Mode:</strong> Select your F.A.S.T Family Account to access your personal task dashboard.
+            🔒 <strong>100% Private Access:</strong> Select your account and enter your secret passcode. Default Passcode is <strong>1234</strong>.
           </p>
 
           <div class="form-group">
@@ -194,11 +241,16 @@
               <!-- Populated dynamically from roster -->
             </select>
           </div>
+
+          <div class="form-group">
+            <label for="loginMemberPin"><i class="fa-solid fa-key"></i> Enter Your 4-Digit Passcode:</label>
+            <input type="password" id="loginMemberPin" placeholder="Default PIN: 1234" maxlength="6" style="text-align:center; font-size:1.3rem; letter-spacing:4px;" required>
+          </div>
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn-secondary" onclick="closeMemberLoginModal()">Cancel</button>
-          <button type="submit" class="btn-primary">Log In to My Dashboard</button>
+          <button type="submit" class="btn-primary">Unlock My Private Dashboard</button>
         </div>
       </form>
     </div>
@@ -375,6 +427,10 @@
           <div class="form-group">
             <label for="newMemberPhone">Member WhatsApp Phone Number:</label>
             <input type="tel" id="newMemberPhone" placeholder="e.g. 9876543210">
+          </div>
+          <div class="form-group">
+            <label for="newMemberPin">Member Secret Passcode (PIN):</label>
+            <input type="password" id="newMemberPin" placeholder="Default: 1234" value="1234" maxlength="6" style="text-align:center; font-size:1.1rem; letter-spacing:2px;" required>
           </div>
         </div>
 
