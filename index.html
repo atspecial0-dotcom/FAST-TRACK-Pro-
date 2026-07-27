@@ -531,13 +531,31 @@
             <small style="color:var(--text-muted); font-size:0.75rem;">Family member: Update your current actual progress completed so far.</small>
           </div>
 
+          <!-- Daily Status Tag & Delay Reason Selector -->
           <div class="form-group">
-            <label for="newTodayProgress"><i class="fa-solid fa-pen-nib"></i> Today's Progress Note</label>
+            <label for="dailyStatusTag" style="font-weight:700;"><i class="fa-solid fa-flag"></i> Today's Completion Status:</label>
+            <select id="dailyStatusTag" class="form-control" style="font-weight:700; padding-left:12px;">
+              <option value="ontrack">🟢 In Progress (On Track)</option>
+              <option value="incomplete">🔴 Incomplete / Delayed Today</option>
+              <option value="blocked">⚠️ Blocked (Need Sir's Help)</option>
+              <option value="completed">✅ 100% Completed Today</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="delayReasonGroup">
+            <label for="delayReasonInput" style="color:var(--fast-red); font-weight:800;">
+              <i class="fa-solid fa-triangle-exclamation"></i> Reason for Incomplete Work / Delay (Visible to Sir):
+            </label>
+            <input type="text" id="delayReasonInput" placeholder="e.g. Electricity outage / Chapter 3 material pending / Heavy rain...">
+          </div>
+
+          <div class="form-group">
+            <label for="newTodayProgress"><i class="fa-solid fa-pen-nib"></i> Today's Work Summary / Notes</label>
             <textarea id="newTodayProgress" rows="3" placeholder="Describe work completed today..." required></textarea>
           </div>
 
           <div class="form-group">
-            <label for="newRemarks"><i class="fa-solid fa-comment"></i> Remarks / Updates</label>
+            <label for="newRemarks"><i class="fa-solid fa-comment"></i> Additional Remarks / Comments</label>
             <input type="text" id="newRemarks" placeholder="Optional remarks...">
           </div>
 

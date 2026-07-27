@@ -1059,10 +1059,32 @@ function renderTasks() {
 
           <h3 class="task-title-clean">${escapeHtml(task.name)}</h3>
 
-          <div class="task-meta-row">
-            <div class="meta-pill"><i class="fa-regular fa-calendar"></i> ${task.assignDate}</div>
+          ${(task.dailyStatusTag === 'incomplete' || task.dailyStatusTag === 'blocked' || (task.delayReason && task.delayReason.trim().length > 0)) ? `
+            <div style="background:${task.dailyStatusTag === 'blocked' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)'}; border:1.5px solid ${task.dailyStatusTag === 'blocked' ? '#f59e0b' : '#ef4444'}; border-radius:10px; padding:8px 12px; margin:8px 0; font-size:0.83rem;">
+              <div style="font-weight:800; color:${task.dailyStatusTag === 'blocked' ? '#b45309' : '#b91c1c'}; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>${task.dailyStatusTag === 'blocked' ? '⚠️ BLOCKED TODAY (Need Sir\'s Help)' : '🔴 INCOMPLETE / DELAYED TODAY'}</span>
+              </div>
+              ${task.delayReason ? `<div style="color:var(--text-main); font-weight:600; margin-top:3px;">Reason: "${escapeHtml(task.delayReason)}"</div>` : ''}
+            </div>
+          ` : ''}
+
+          <div class="task-meta-row" style="margin-top:6px;">
+            <div class="meta-pill"><i class="fa-regular fa-calendar"></i> Assign: ${task.assignDate}</div>
             <div class="meta-pill"><i class="fa-solid fa-flag-checkered"></i> Due: ${task.targetDate}</div>
             <span class="status-badge-pill ${targetBadgeClass}">${targetBadgeText}</span>
+            
+            ${!task.archived ? `
+              ${(task.history && task.history.length && task.history[task.history.length - 1].date === today) ? `
+                <span style="font-size:0.75rem; color:#059669; background:rgba(16,185,129,0.12); border:1px solid #10b981; padding:2px 8px; border-radius:12px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                  <i class="fa-solid fa-circle-check"></i> Logged Today
+                </span>
+              ` : `
+                <span style="font-size:0.75rem; color:#b45309; background:rgba(245,158,11,0.12); border:1px solid #f59e0b; padding:2px 8px; border-radius:12px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                  <i class="fa-solid fa-clock"></i> No Log Today
+                </span>
+              `}
+            ` : ''}
           </div>
 
           <div class="progress-clean-container">
@@ -1087,11 +1109,26 @@ function renderTasks() {
           ${hasRealProgressNote ? `
             <div class="note-box-clean">
               <div class="note-title-clean">
-                <span>Today's Progress</span>
+                <span>Latest Progress Note</span>
                 <span>${task.history && task.history.length ? task.history[task.history.length - 1].date : ''}</span>
               </div>
               "${escapeHtml(task.todayProgress)}"
             </div>
+          ` : ''}
+
+          ${(task.history && task.history.length > 1) ? `
+            <details style="margin-top:8px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;">
+              <summary style="font-weight:700; color:var(--fast-red); font-size:0.76rem; user-select:none;">
+                📜 View Daily Log History (${task.history.length} updates)
+              </summary>
+              <div style="margin-top:6px; background:var(--bg-primary); padding:6px 10px; border-radius:8px; border:1px solid var(--border-color); max-height:120px; overflow-y:auto;">
+                ${task.history.slice().reverse().map(h => `
+                  <div style="padding:3px 0; border-bottom:1px solid var(--border-color);">
+                    <strong style="color:var(--fast-red);">${h.date} (${h.pct}%):</strong> ${escapeHtml(h.note)}
+                  </div>
+                `).join('')}
+              </div>
+            </details>
           ` : ''}
 
           ${task.remarks ? `
@@ -1546,6 +1583,8 @@ function openProgressModal(taskId) {
   document.getElementById('newTotalProgressPct').value = task.progressPct || 0;
   document.getElementById('newProgressPctLabel').innerText = (task.progressPct || 0) + '%';
   document.getElementById('newRemarks').value = task.remarks || '';
+  document.getElementById('dailyStatusTag').value = task.dailyStatusTag || 'ontrack';
+  document.getElementById('delayReasonInput').value = task.delayReason || '';
 
   const historyContainer = document.getElementById('progressHistoryList');
   if (task.history && task.history.length) {
@@ -1575,24 +1614,36 @@ function handleProgressFormSubmit(e) {
   const newNote = document.getElementById('newTodayProgress').value.trim();
   const newPct = parseInt(document.getElementById('newTotalProgressPct').value, 10);
   const newRemarks = document.getElementById('newRemarks').value.trim();
+  const dailyStatusTag = document.getElementById('dailyStatusTag').value;
+  const delayReason = document.getElementById('delayReasonInput').value.trim();
 
   const task = tasks.find(t => t.id === taskId);
   if (task) {
     task.todayProgress = newNote;
     task.progressPct = newPct;
+    task.dailyStatusTag = dailyStatusTag;
+    task.delayReason = delayReason;
     if (newRemarks) task.remarks = newRemarks;
+
+    const statusLabel = dailyStatusTag === 'blocked' ? '[⚠️ BLOCKED]' : (dailyStatusTag === 'incomplete' ? '[🔴 INCOMPLETE]' : '');
+    const logNote = `${statusLabel} ${newNote} ${delayReason ? `(Reason: ${delayReason})` : ''}`.trim();
 
     if (!task.history) task.history = [];
     task.history.push({
       date: getFormattedDate(),
-      note: newNote,
+      note: logNote,
       pct: newPct
     });
 
     syncAllTasks();
     playNotificationSound();
     closeProgressModal();
-    showToast('Today\'s actual progress note & % saved successfully!', 'success');
+
+    if (dailyStatusTag === 'incomplete' || dailyStatusTag === 'blocked') {
+      showToast(`⚠️ Progress logged! Tagged as "${dailyStatusTag.toUpperCase()}" with Reason for Sir's view.`, 'info');
+    } else {
+      showToast('Today\'s actual progress note & % saved successfully!', 'success');
+    }
   }
 }
 
