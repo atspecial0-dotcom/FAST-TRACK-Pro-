@@ -101,7 +101,9 @@ const DEFAULT_TASKS = [
 // App State Variables
 let tasks = [];
 let familyRoster = [];
-let currentRole = 'admin';
+
+// CRITICAL SECURITY FIX: Default role MUST be 'worker' (Family Mode) so new links NEVER open in Admin mode!
+let currentRole = 'worker';
 let currentFamilyUser = 'Priya Sharma';
 let currentTab = 'active';
 let layoutMode = 'grid'; // 'grid' vs 'calendar'
@@ -160,8 +162,24 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFamilyRoster();
   loadActiveFamilyUser();
   initCloudEngine();
+
+  // Load active role session if stored, else default to 'worker' (Family Mode)
+  const savedRole = localStorage.getItem('fast_current_role');
+  if (savedRole === 'admin') {
+    currentRole = 'admin';
+  } else {
+    currentRole = 'worker';
+  }
+
   updateRoleUI();
   requestBrowserNotificationPermission();
+
+  // Prompt Member Login Modal on first visit if in Worker mode
+  if (currentRole === 'worker') {
+    setTimeout(() => {
+      openMemberLoginModal();
+    }, 2500);
+  }
 
   setInterval(() => {
     if (cloudSyncMode !== 'local') {
@@ -644,6 +662,7 @@ function switchRole(newRole) {
     openPinModal();
   } else if (newRole === 'worker') {
     currentRole = 'worker';
+    localStorage.setItem('fast_current_role', 'worker');
     openMemberLoginModal();
     updateRoleUI();
     renderAppViews();
@@ -665,6 +684,7 @@ function verifyAdminPin(e) {
   const input = document.getElementById('adminPinInput').value;
   if (input === ADMIN_PIN || input === 'admin') {
     currentRole = 'admin';
+    localStorage.setItem('fast_current_role', 'admin');
     closePinModal();
     updateRoleUI();
     renderAppViews();
