@@ -1260,85 +1260,16 @@ function saveEmailConfigSettings() {
 }
 
 async function sendAutomatedBackgroundEmail(taskId, notifyAdmin = false) {
+  // Automated background EmailJS disabled in favor of direct Gmail compose links.
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  let recipientEmail, toName, subject, body;
-
   if (notifyAdmin) {
-    // Member added a task → notify Sarthak Sir (Admin)
-    const adminMember = familyRoster.find(m => m.name.toLowerCase().includes('sarthak'));
-    recipientEmail = adminMember ? adminMember.email : 'sarthak@fasttutorials.com';
-    toName = 'Sarthak Sir';
-    subject = `🔔 New Task Added by ${task.createdBy || task.assignee}: ${task.name}`;
-    body = `Dear Sarthak Sir,\n\n` +
-           `A new task has been added on F.A.S.T TaskTrack Pro:\n\n` +
-           `• Added By: ${task.createdBy || task.assignee}\n` +
-           `• Task Name: ${task.name}\n` +
-           `• Assigned To: ${task.assignee}\n` +
-           `• Target Due Date: ${task.targetDate}\n` +
-           `• Notes: "${task.todayProgress || 'N/A'}"\n\n` +
-           `Please review this task on F.A.S.T TaskTrack Pro.\n\n` +
-           `Regards,\nF.A.S.T TaskTrack Pro`;
     addNotification(
-      `📋 New task added by ${task.createdBy || task.assignee}: "${task.name}" → Notification sent to Sir`,
-      'info', 'fa-circle-plus'
-    );
-  } else {
-    // Admin/SubAdmin created task → notify the assignee
-    const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
-    recipientEmail = member ? member.email : 'member@fasttutorials.com';
-    toName = task.assignee;
-    subject = `📌 F.A.S.T Task Alert: ${task.name}`;
-    body = `Dear ${task.assignee},\n\n` +
-           `Sarthak Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
-           `• Task Name: ${task.name}\n` +
-           `• Target Due Date: ${task.targetDate}\n` +
-           `• Sarthak Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
-           `• Current Actual Progress: ${task.progressPct}%\n` +
-           `${task.sirFeedback ? `• Sarthak Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
-           `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
-           `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
-           `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
-    addNotification(
-      `📧 Email sent to ${task.assignee} for task: "${task.name}"`,
-      'success', 'fa-envelope'
+      `📋 Task "${task.name}" created by ${task.createdBy || task.assignee}. Click 'Email' to open Gmail compose if needed.`,
+      'info', 'fa-envelope'
     );
   }
-
-  task.emailSent = true;
-  task.emailSentAt = getFormattedDate();
-  syncAllTasks();
-
-  try {
-    await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service_id: emailServiceId,
-        template_id: emailTemplateId,
-        user_id: emailPublicKey,
-        template_params: {
-          to_email: recipientEmail,
-          recipient_email: recipientEmail,
-          user_email: recipientEmail,
-          email: recipientEmail,
-          to_name: toName,
-          recipient: recipientEmail,
-          from_name: 'F.A.S.T Tutorials Sarthak Sir',
-          subject: subject,
-          message: body,
-          task_name: task.name,
-          target_date: task.targetDate
-        }
-      })
-    });
-    showToast(`🟢 Email sent to ${recipientEmail}! ✔️`, 'success');
-  } catch (err) {
-    showToast(`🟢 Task Saved! Email notification logged ✔️`, 'info');
-  }
-
-  triggerNativeBrowserNotification(subject, `Notification sent to ${recipientEmail}`);
 }
 
 async function sendAutomatedBackgroundWhatsApp(taskId) {
@@ -1365,34 +1296,155 @@ async function sendAutomatedBackgroundWhatsApp(taskId) {
   }
 }
 
+const DEFAULT_EMAIL_TEMPLATE = `Dear {assignee},
+
+{sender} has assigned/updated a task for you on F.A.S.T TaskTrack Pro:
+
+• Task Name: {task_name}
+• Target Due Date: {target_date}
+• Expected Target: {expected_target}%
+• Current Actual Progress: {progress}%
+{sir_feedback}
+• Task Description: "{notes}"
+
+Please update your daily progress on F.A.S.T TaskTrack Pro!
+
+Regards,
+{sender}
+First Attempt Success Tutorials (F.A.S.T)`;
+
+function getUserEmailTemplate() {
+  const userKey = 'fast_template_' + (currentFamilyUser || 'default').toLowerCase().replace(/\s+/g, '_');
+  const saved = localStorage.getItem(userKey);
+  return saved || DEFAULT_EMAIL_TEMPLATE;
+}
+
+function generateEmailBodyFromTemplate(task) {
+  const rawTemplate = getUserEmailTemplate();
+  const senderName = currentFamilyUser || 'F.A.S.T TaskTrack';
+  const sirFeedbackLine = task.sirFeedback ? `• Sarthak Sir's Note: "${task.sirFeedback}"` : '';
+
+  return rawTemplate
+    .replace(/\{assignee\}/g, task.assignee || '')
+    .replace(/\{sender\}/g, senderName)
+    .replace(/\{task_name\}/g, task.name || '')
+    .replace(/\{target_date\}/g, task.targetDate || '')
+    .replace(/\{expected_target\}/g, (task.expectedProgressPct !== undefined ? task.expectedProgressPct : 100))
+    .replace(/\{progress\}/g, task.progressPct || 0)
+    .replace(/\{notes\}/g, task.todayProgress || 'N/A')
+    .replace(/\{sir_feedback\}/g, sirFeedbackLine);
+}
+
+function openEmailTemplateModal() {
+  const textarea = document.getElementById('customTemplateTextarea');
+  if (textarea) {
+    textarea.value = getUserEmailTemplate();
+  }
+  document.getElementById('emailTemplateModal').classList.add('active');
+}
+
+function closeEmailTemplateModal() {
+  document.getElementById('emailTemplateModal').classList.remove('active');
+}
+
+function insertTagInTemplate(tag) {
+  const textarea = document.getElementById('customTemplateTextarea');
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  textarea.value = text.substring(0, start) + tag + text.substring(end);
+  textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+  textarea.focus();
+}
+
+function saveCustomEmailTemplate() {
+  const textarea = document.getElementById('customTemplateTextarea');
+  if (!textarea) return;
+  const userKey = 'fast_template_' + (currentFamilyUser || 'default').toLowerCase().replace(/\s+/g, '_');
+  localStorage.setItem(userKey, textarea.value);
+  showToast(`Custom email template saved for ${currentFamilyUser}!`, 'success');
+  closeEmailTemplateModal();
+
+  // If email modal is open, refresh body preview
+  const emailTaskId = document.getElementById('emailTaskId').value;
+  if (emailTaskId) {
+    const task = tasks.find(t => t.id === emailTaskId);
+    if (task) {
+      document.getElementById('emailBodyDisplay').value = generateEmailBodyFromTemplate(task);
+    }
+  }
+}
+
+function resetEmailTemplateToDefault() {
+  const textarea = document.getElementById('customTemplateTextarea');
+  if (textarea) {
+    textarea.value = DEFAULT_EMAIL_TEMPLATE;
+  }
+  const userKey = 'fast_template_' + (currentFamilyUser || 'default').toLowerCase().replace(/\s+/g, '_');
+  localStorage.removeItem(userKey);
+  showToast('Email template reset to standard default!', 'info');
+}
+
 function openEmailModal(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
-  const recipientEmail = member ? member.email : 'member@fasttutorials.com';
-
   document.getElementById('emailTaskId').value = task.id;
-  document.getElementById('emailRecipientDisplay').value = recipientEmail;
+
+  // Populate recipient select dropdown from familyRoster
+  const select = document.getElementById('emailRecipientSelect');
+  if (select) {
+    select.innerHTML = familyRoster.map(m => {
+      const isAssignee = (m.name.toLowerCase() === task.assignee.toLowerCase());
+      return `<option value="${escapeHtml(m.email)}" ${isAssignee ? 'selected' : ''}>${escapeHtml(m.name)} (${escapeHtml(m.email)})</option>`;
+    }).join('');
+  }
+
+  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
+  const recipientEmail = member ? member.email : (familyRoster[0] ? familyRoster[0].email : 'member@fasttutorials.com');
+
+  const displayInput = document.getElementById('emailRecipientDisplay');
+  if (displayInput) displayInput.value = recipientEmail;
+
   document.getElementById('emailSubjectDisplay').value = `📌 F.A.S.T Task Alert: ${task.name}`;
   
-  const body = `Dear ${task.assignee},\n\n` +
-               `Sarthak Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
-               `• Task Name: ${task.name}\n` +
-               `• Target Due Date: ${task.targetDate}\n` +
-               `• Sarthak Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
-               `• Current Actual Progress: ${task.progressPct}%\n` +
-               `${task.sirFeedback ? `• Sarthak Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
-               `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
-               `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
-               `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
-
+  const body = generateEmailBodyFromTemplate(task);
   document.getElementById('emailBodyDisplay').value = body;
   document.getElementById('emailModal').classList.add('active');
 }
 
+function onEmailRecipientSelectChange() {
+  const select = document.getElementById('emailRecipientSelect');
+  const display = document.getElementById('emailRecipientDisplay');
+  if (select && display) {
+    display.value = select.value;
+  }
+}
+
 function closeEmailModal() {
   document.getElementById('emailModal').classList.remove('active');
+}
+
+function openGmailCompose() {
+  const taskId = document.getElementById('emailTaskId').value;
+  const recipient = document.getElementById('emailRecipientDisplay').value.trim();
+  const subject = document.getElementById('emailSubjectDisplay').value.trim();
+  const body = document.getElementById('emailBodyDisplay').value.trim();
+
+  const task = tasks.find(t => t.id === taskId);
+  if (task) {
+    task.emailSent = true;
+    task.emailSentAt = getFormattedDate();
+    syncAllTasks();
+  }
+
+  // Opens Gmail Web Compose link pre-populated with recipient, subject, and body!
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(gmailUrl, '_blank');
+
+  showToast('Opening Gmail Compose window! 🚀', 'success');
+  closeEmailModal();
 }
 
 function copyEmailTextToClipboard() {
@@ -1429,12 +1481,6 @@ function openMailClient() {
 
   const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.open(mailtoUrl, '_blank');
-}
-
-async function dispatchDirectEmail() {
-  const taskId = document.getElementById('emailTaskId').value;
-  await sendAutomatedBackgroundEmail(taskId);
-  closeEmailModal();
 }
 
 function requestBrowserNotificationPermission() {
@@ -1682,15 +1728,13 @@ function handleTaskFormSubmit(e) {
   closeTaskModal();
   showToast(id ? 'Task updated!' : `New Task added by ${currentFamilyUser}!`, 'success');
 
-  // If a FAST Family member (worker/subadmin) adds a task → notify Sarthak Sir
-  // If Admin creates/edits task → notify the assignee
-  const notifyAdminMode = (currentRole === 'worker' || currentRole === 'subadmin') && !id;
-  sendAutomatedBackgroundEmail(currentTaskId, notifyAdminMode);
+  // Send WhatsApp alert if configured
   sendAutomatedBackgroundWhatsApp(currentTaskId);
 
+  const notifyAdminMode = (currentRole === 'worker' || currentRole === 'subadmin') && !id;
   if (notifyAdminMode) {
     addNotification(
-      `✅ Your task "${name}" has been submitted to Sarthak Sir for review.`,
+      `✅ Task "${name}" created by ${currentFamilyUser}. Click 'Email' on card to open in Gmail if needed.`,
       'success', 'fa-circle-check'
     );
   }
