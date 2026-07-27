@@ -1,5 +1,5 @@
 /* ==========================================================================
-   F.A.S.T TASK TRACK PRO - DELIVERY TICK MARK BADGES STYLES
+   F.A.S.T TASK TRACK PRO - ULTRA-PREMIUM ANIMATED SPLASH SCREEN STYLES
    First Attempt Success Tutorials
    ========================================================================== */
 
@@ -10,7 +10,7 @@
   --fast-red: #D92534;
   --fast-red-hover: #B81C2A;
   --fast-red-light: rgba(217, 37, 52, 0.08);
-  --fast-red-glow: rgba(217, 37, 52, 0.25);
+  --fast-red-glow: rgba(217, 37, 52, 0.35);
   
   --fast-charcoal: #1E1E24;
   --fast-charcoal-light: #2D2D36;
@@ -77,6 +77,113 @@ body {
   display: flex;
   flex-direction: column;
   transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+/* ==========================================================================
+   ULTRA-PREMIUM INTRO SPLASH SCREEN ANIMATION
+   ========================================================================== */
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, #2A2A36 0%, #121217 100%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s ease;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+}
+
+.splash-logo {
+  height: 110px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 0 25px rgba(217, 37, 52, 0.6));
+  animation: splashLogoEntrance 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.splash-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -1px;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: splashTextFadeIn 0.8s ease forwards 0.8s;
+}
+
+.splash-title span {
+  color: var(--fast-red);
+  text-shadow: 0 0 15px var(--fast-red-glow);
+}
+
+.splash-subtitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #94A3B8;
+  margin-top: 6px;
+  opacity: 0;
+  transform: translateY(15px);
+  animation: splashTextFadeIn 0.8s ease forwards 1.1s;
+}
+
+.splash-loader {
+  width: 140px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-top: 2rem;
+  overflow: hidden;
+  position: relative;
+  opacity: 0;
+  animation: splashTextFadeIn 0.5s ease forwards 1.3s;
+}
+
+.splash-loader::after {
+  content: '';
+  position: absolute;
+  left: -100%;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--fast-red), transparent);
+  animation: splashLoaderBar 1.2s ease-in-out infinite 1.4s;
+}
+
+@keyframes splashLogoEntrance {
+  0% { transform: scale(0.3) rotate(-5deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes splashTextFadeIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes splashLoaderBar {
+  0% { left: -100%; }
+  100% { left: 100%; }
 }
 
 /* Header & Navigation */
@@ -1072,7 +1179,7 @@ select.form-control {
 }
 
 .form-row {
-  display.grid;
+  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
@@ -1161,5 +1268,8 @@ select.form-control {
   .tabs-and-filters {
     flex-direction: column;
     align-items: stretch;
+  }
+  .splash-title {
+    font-size: 2.1rem;
   }
 }

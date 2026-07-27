@@ -1,5 +1,5 @@
 /* ==========================================================================
-   F.A.S.T TASK TRACK PRO - CORE LOGIC (AUTOMATED WHATSAPP DISPATCH EDITION)
+   F.A.S.T TASK TRACK PRO - CORE LOGIC (SPLASH SCREEN INTRO EDITION)
    First Attempt Success Tutorials
    ========================================================================== */
 
@@ -126,6 +126,7 @@ function getFormattedDate(offsetDays = 0) {
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+  runSplashScreen();
   loadSavedPin();
   loadSavedTheme();
   loadFamilyRoster();
@@ -140,6 +141,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 6000);
 });
+
+// Ultra-Premium Animated Splash Screen Sequence
+function runSplashScreen() {
+  const splash = document.getElementById('splashScreen');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('fade-out');
+      setTimeout(() => {
+        splash.style.display = 'none';
+      }, 800);
+    }, 2400);
+  }
+}
 
 // Family Roster & Active User Logic
 function loadFamilyRoster() {
