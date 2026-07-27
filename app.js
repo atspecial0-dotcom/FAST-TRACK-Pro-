@@ -107,6 +107,9 @@ let currentTab = 'active';
 let layoutMode = 'grid'; // 'grid' vs 'calendar'
 let ADMIN_PIN = '1234';
 
+// Calendar Navigation State
+let calendarMonthOffset = 0; // 0 = current month, -1 = prev, +1 = next
+
 let cloudSyncMode = 'jsonbin';
 const JSONBIN_PUBLIC_ID = '66a41f8ee41046788a892b10';
 let isSyncing = false;
@@ -546,14 +549,22 @@ function toggleLayoutMode(mode) {
   }
 }
 
-// Calendar Month View Renderer
+// Calendar Month Navigation Handlers
+function changeCalendarMonth(delta) {
+  calendarMonthOffset += delta;
+  renderCalendarView();
+}
+
+// Calendar Month View Renderer with Task Matching
 function renderCalendarView() {
   const container = document.getElementById('calendarViewContainer');
   if (!container) return;
 
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const now = new Date();
+  const targetDateObj = new Date(now.getFullYear(), now.getMonth() + calendarMonthOffset, 1);
+
+  const year = targetDateObj.getFullYear();
+  const month = targetDateObj.getMonth();
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -561,15 +572,28 @@ function renderCalendarView() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   
   let relevantTasks = tasks;
-  if (currentRole === 'worker') {
-    relevantTasks = tasks.filter(t => t.assignee.toLowerCase() === currentFamilyUser.toLowerCase());
+  if (currentTab === 'active') {
+    relevantTasks = relevantTasks.filter(t => !t.archived);
+  } else {
+    relevantTasks = relevantTasks.filter(t => t.archived);
   }
+
+  if (currentRole === 'worker') {
+    relevantTasks = relevantTasks.filter(t => t.assignee.toLowerCase() === currentFamilyUser.toLowerCase());
+  }
+
+  const todayStr = getFormattedDate();
 
   let html = `
     <div class="calendar-header">
-      <span><i class="fa-solid fa-calendar-days" style="color:var(--fast-red);"></i> ${monthNames[month]} ${year}</span>
-      <span style="font-size:0.85rem; color:var(--text-muted);">${relevantTasks.length} Total Tasks</span>
+      <div style="display:flex; align-items:center; gap:0.8rem;">
+        <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="changeCalendarMonth(-1)"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+        <span><i class="fa-solid fa-calendar-days" style="color:var(--fast-red);"></i> ${monthNames[month]} ${year}</span>
+        <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="changeCalendarMonth(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <span style="font-size:0.82rem; color:var(--text-muted); font-weight:700;">${relevantTasks.length} Total Active Tasks</span>
     </div>
+
     <div class="calendar-grid">
       <div class="calendar-day-header">Sun</div>
       <div class="calendar-day-header">Mon</div>
@@ -581,23 +605,28 @@ function renderCalendarView() {
   `;
 
   for (let i = 0; i < firstDay.getDay(); i++) {
-    html += `<div class="calendar-day-cell" style="opacity:0.4;"></div>`;
+    html += `<div class="calendar-day-cell" style="opacity:0.35;"></div>`;
   }
 
   for (let day = 1; day <= lastDay.getDate(); day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dayTasks = relevantTasks.filter(t => t.targetDate === dateStr);
+    const isToday = (dateStr === todayStr);
+
+    // Match tasks where targetDate OR assignDate falls on this day
+    const dayTasks = relevantTasks.filter(t => t.targetDate === dateStr || t.assignDate === dateStr);
 
     html += `
-      <div class="calendar-day-cell">
-        <div class="calendar-day-number">${day}</div>
+      <div class="calendar-day-cell" style="${isToday ? 'border: 2px solid var(--fast-red); background: var(--fast-red-light);' : ''}">
+        <div class="calendar-day-number" style="${isToday ? 'color:var(--fast-red); font-weight:800;' : ''}">${day} ${isToday ? '🎯 Today' : ''}</div>
     `;
 
     dayTasks.forEach(t => {
+      const isDue = (t.targetDate === dateStr);
       const isDone = (t.progressPct >= (t.expectedProgressPct || 100));
+      
       html += `
-        <div class="calendar-task-pill ${isDone ? 'completed' : ''}" onclick="openProgressModal('${t.id}')" title="${escapeHtml(t.name)} (${t.assignee})">
-          ${isDone ? '✔️ ' : '📌 '}${escapeHtml(t.name)}
+        <div class="calendar-task-pill ${isDone ? 'completed' : ''}" onclick="openProgressModal('${t.id}')" title="${escapeHtml(t.name)} (${t.assignee}) - Progress: ${t.progressPct}%">
+          ${isDone ? '✔️ ' : (isDue ? '🏁 ' : '📌 ')}${escapeHtml(t.name)}
         </div>
       `;
     });
