@@ -5,11 +5,13 @@
 
 // Default Family Roster Data with Passcodes (Default PIN: 1234)
 const DEFAULT_ROSTER = [
-  { name: 'Amit Sir', email: 'amit@fasttutorials.com', phone: '9876543210', pin: '1234' },
-  { name: 'Priya Sharma', email: 'priya@fasttutorials.com', phone: '9876543211', pin: '1234' },
-  { name: 'Rohan Verma', email: 'rohan@fasttutorials.com', phone: '9876543212', pin: '1234' },
-  { name: 'Vikas Sir', email: 'vikas@fasttutorials.com', phone: '9876543213', pin: '1234' },
-  { name: 'Neha Gupta', email: 'neha@fasttutorials.com', phone: '9876543214', pin: '1234' }
+  { name: 'Sarthak Sir (Admin)', email: 'sarthak@fasttutorials.com', phone: '9876543201', pin: '1234', isSubAdmin: true },
+  { name: 'Abhi Sir', email: 'abhi@fasttutorials.com', phone: '9876543200', pin: '1234', isSubAdmin: true },
+  { name: 'Amit Sir', email: 'amit@fasttutorials.com', phone: '9876543210', pin: '1234', isSubAdmin: false },
+  { name: 'Priya Sharma', email: 'priya@fasttutorials.com', phone: '9876543211', pin: '1234', isSubAdmin: false },
+  { name: 'Rohan Verma', email: 'rohan@fasttutorials.com', phone: '9876543212', pin: '1234', isSubAdmin: false },
+  { name: 'Vikas Sir', email: 'vikas@fasttutorials.com', phone: '9876543213', pin: '1234', isSubAdmin: false },
+  { name: 'Neha Gupta', email: 'neha@fasttutorials.com', phone: '9876543214', pin: '1234', isSubAdmin: false }
 ];
 
 // Default Sample Tasks
@@ -102,15 +104,14 @@ const DEFAULT_TASKS = [
 let tasks = [];
 let familyRoster = [];
 
-// CRITICAL SECURITY FIX: Default role MUST be 'worker' (Family Mode) so new links NEVER open in Admin mode!
 let currentRole = 'worker';
-let currentFamilyUser = 'Priya Sharma';
+let currentFamilyUser = 'Sarthak Sir (Admin)';
 let currentTab = 'active';
 let layoutMode = 'grid'; // 'grid' vs 'calendar'
 let ADMIN_PIN = '1234';
 
 // Calendar Navigation State
-let calendarMonthOffset = 0; // 0 = current month, -1 = prev, +1 = next
+let calendarMonthOffset = 0;
 
 let cloudSyncMode = 'jsonbin';
 const JSONBIN_PUBLIC_ID = '66a41f8ee41046788a892b10';
@@ -121,7 +122,6 @@ let emailServiceId = localStorage.getItem('fast_email_service_id') || 'service_6
 let emailTemplateId = localStorage.getItem('fast_email_template_id') || 'template_fast';
 let emailPublicKey = localStorage.getItem('fast_email_public_key') || '_HNHeTv_dseXukSJz';
 
-// Optional WhatsApp Webhook Gateway URL
 let whatsappGatewayUrl = localStorage.getItem('fast_whatsapp_gateway_url') || '';
 
 function getFormattedDate(offsetDays = 0) {
@@ -130,7 +130,6 @@ function getFormattedDate(offsetDays = 0) {
   return d.toISOString().split('T')[0];
 }
 
-// Web Audio API Chime Sound Generator
 function playNotificationSound() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -154,7 +153,6 @@ function playNotificationSound() {
   } catch (e) {}
 }
 
-// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   runSplashScreen();
   loadSavedPin();
@@ -163,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadActiveFamilyUser();
   initCloudEngine();
 
-  // Load active role session if stored, else default to 'worker' (Family Mode)
   const savedRole = localStorage.getItem('fast_current_role');
   if (savedRole === 'admin') {
     currentRole = 'admin';
@@ -174,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
   updateRoleUI();
   requestBrowserNotificationPermission();
 
-  // Prompt Member Login Modal on first visit if in Worker mode
   if (currentRole === 'worker') {
     setTimeout(() => {
       openMemberLoginModal();
@@ -188,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 6000);
 });
 
-// Ultra-Premium Animated Splash Screen Sequence
 function runSplashScreen() {
   const splash = document.getElementById('splashScreen');
   if (splash) {
@@ -201,7 +196,6 @@ function runSplashScreen() {
   }
 }
 
-// Family Roster & Passcodes Logic
 function loadFamilyRoster() {
   const saved = localStorage.getItem('fast_family_roster');
   if (saved) {
@@ -215,6 +209,14 @@ function loadFamilyRoster() {
     familyRoster = DEFAULT_ROSTER;
     saveFamilyRoster();
   }
+
+  // Ensure Sarthak Sir (Admin) is in roster
+  const hasSarthak = familyRoster.some(m => m.name.toLowerCase().includes('sarthak'));
+  if (!hasSarthak) {
+    familyRoster.unshift({ name: 'Sarthak Sir (Admin)', email: 'sarthak@fasttutorials.com', phone: '9876543201', pin: '1234' });
+    saveFamilyRoster();
+  }
+
   populateAssigneeSelects();
 }
 
@@ -237,9 +239,18 @@ function populateAssigneeSelects() {
   const filterSelect = document.getElementById('filterAssignee');
   const loginSelect = document.getElementById('loginMemberSelect');
 
+  // Place Sarthak Sir (Admin) and active user at top
+  const sortedRoster = [...familyRoster].sort((a, b) => {
+    if (a.name.toLowerCase().includes('sarthak')) return -1;
+    if (b.name.toLowerCase().includes('sarthak')) return 1;
+    if (a.name.toLowerCase() === currentFamilyUser.toLowerCase()) return -1;
+    if (b.name.toLowerCase() === currentFamilyUser.toLowerCase()) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
   if (taskSelect) {
     let html = '';
-    familyRoster.forEach(m => {
+    sortedRoster.forEach(m => {
       html += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} (${m.email})</option>`;
     });
     taskSelect.innerHTML = html;
@@ -248,7 +259,7 @@ function populateAssigneeSelects() {
   if (filterSelect) {
     const currentVal = filterSelect.value;
     let html = '<option value="">All Family Members</option>';
-    familyRoster.forEach(m => {
+    sortedRoster.forEach(m => {
       html += `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`;
     });
     filterSelect.innerHTML = html;
@@ -257,14 +268,15 @@ function populateAssigneeSelects() {
 
   if (loginSelect) {
     let html = '';
-    familyRoster.forEach(m => {
-      html += `<option value="${escapeHtml(m.name)}" ${m.name === currentFamilyUser ? 'selected' : ''}>👤 ${escapeHtml(m.name)} (${m.email})</option>`;
+    sortedRoster.forEach(m => {
+      const isSelected = (m.name.toLowerCase() === currentFamilyUser.toLowerCase());
+      const roleBadge = m.name.toLowerCase().includes('sarthak') ? '👑 Admin' : (m.isSubAdmin ? '🛡️ Sub-Admin' : '');
+      html += `<option value="${escapeHtml(m.name)}" ${isSelected ? 'selected' : ''}>👤 ${escapeHtml(m.name)} ${roleBadge ? '[' + roleBadge + ']' : ''} ${isSelected ? '⭐' : ''}</option>`;
     });
     loginSelect.innerHTML = html;
   }
 }
 
-// Sir's Roster & Member Passcode Management Modal
 function openRosterManageModal() {
   if (currentRole !== 'admin') {
     showToast('Only Sir (Admin) can manage member passcodes!', 'error');
@@ -283,27 +295,78 @@ function renderRosterManageList() {
   if (!container) return;
 
   let html = '';
-  familyRoster.forEach((member, index) => {
+  familyRoster.forEach((member) => {
+    const isAdmin = member.name.toLowerCase().includes('sarthak');
+    const isSubAdmin = member.isSubAdmin;
+
     html += `
       <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
         <div>
-          <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);"><i class="fa-solid fa-user"></i> ${escapeHtml(member.name)}</div>
-          <div style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(member.email)}</div>
+          <div style="font-weight:700; font-size:0.95rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-user"></i> ${escapeHtml(member.name)}
+            ${isAdmin ? '<span style="font-size:0.7rem; background:var(--fast-red); color:white; padding:2px 6px; border-radius:4px; font-weight:800;">SUPER ADMIN</span>' : ''}
+            ${isSubAdmin && !isAdmin ? '<span style="font-size:0.7rem; background:#10B981; color:white; padding:2px 6px; border-radius:4px; font-weight:800;">SUB ADMIN 🛡️</span>' : ''}
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; gap:6px; margin-top:3px;">
+            <span>${escapeHtml(member.email)}</span>
+            <button style="background:none; border:none; color:var(--fast-red); cursor:pointer; font-size:0.75rem; padding:0;" onclick="promptEditMemberEmail('${escapeHtml(member.name)}')" title="Edit Email">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
+          </div>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="font-size:0.8rem; font-weight:700; color:var(--fast-red); background:var(--bg-surface); padding:4px 8px; border-radius:6px; border:1px solid var(--border-color);">
             PIN: ${member.pin || '1234'}
           </span>
           <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="promptResetMemberPin('${escapeHtml(member.name)}')">
-            <i class="fa-solid fa-key"></i> Reset PIN
+            <i class="fa-solid fa-key"></i> PIN
           </button>
+
+          ${!isAdmin ? `
+            <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem; color:${isSubAdmin ? '#10B981' : 'var(--text-main)'}; border-color:${isSubAdmin ? '#10B981' : 'var(--border-color)'}; font-weight:700;" onclick="toggleSubAdminRole('${escapeHtml(member.name)}')">
+              <i class="fa-solid fa-shield-halved"></i> ${isSubAdmin ? 'Sub-Admin ✔️' : '+ Make Sub-Admin'}
+            </button>
+            <button class="btn-secondary" style="padding:4px 10px; font-size:0.78rem; color:#ef4444; border-color:#ef4444;" onclick="removeRosterMember('${escapeHtml(member.name)}')">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          ` : ''}
         </div>
       </div>
     `;
   });
 
   container.innerHTML = html;
+}
+
+function toggleSubAdminRole(memberName) {
+  const member = familyRoster.find(m => m.name.toLowerCase() === memberName.toLowerCase());
+  if (!member) return;
+
+  if (member.name.toLowerCase().includes('sarthak')) {
+    showToast('Sarthak Sir is Super Admin!', 'info');
+    return;
+  }
+
+  member.isSubAdmin = !member.isSubAdmin;
+  saveFamilyRoster();
+  renderRosterManageList();
+  showToast(`${member.name} is now ${member.isSubAdmin ? 'a Sub-Admin 🛡️' : 'a regular FAST Family member'}!`, 'success');
+}
+
+function promptEditMemberEmail(memberName) {
+  const member = familyRoster.find(m => m.name.toLowerCase() === memberName.toLowerCase());
+  if (!member) return;
+
+  const newEmail = prompt(`Enter new Email address for "${member.name}":`, member.email || '');
+  if (newEmail !== null && newEmail.trim().length > 3) {
+    member.email = newEmail.trim();
+    saveFamilyRoster();
+    renderRosterManageList();
+    showToast(`Email for ${member.name} updated to "${member.email}"!`, 'success');
+  } else if (newEmail !== null) {
+    showToast('Please enter a valid email address!', 'error');
+  }
 }
 
 function promptResetMemberPin(memberName) {
@@ -321,17 +384,76 @@ function promptResetMemberPin(memberName) {
   }
 }
 
-// Individual Member Passcode Login Modal
+function removeRosterMember(memberName) {
+  if (memberName.toLowerCase().includes('sarthak')) {
+    showToast('Sarthak Sir (Admin) account cannot be deleted!', 'error');
+    return;
+  }
+  if (!confirm(`Are you sure you want to remove "${memberName}" from the roster? This cannot be undone.`)) return;
+  familyRoster = familyRoster.filter(m => m.name.toLowerCase() !== memberName.toLowerCase());
+  saveFamilyRoster();
+  renderRosterManageList();
+  showToast(`"${memberName}" removed from roster!`, 'success');
+}
+
 function openMemberLoginModal() {
   populateAssigneeSelects();
+  // Always reset to Step 1 (role selection cards)
+  document.getElementById('loginStep1').style.display = 'block';
+  document.getElementById('loginStep2Admin').style.display = 'none';
+  document.getElementById('loginStep2Family').style.display = 'none';
   const pinInput = document.getElementById('loginMemberPin');
   if (pinInput) pinInput.value = '';
+  const adminPinInput = document.getElementById('adminPinFromModal');
+  if (adminPinInput) adminPinInput.value = '';
   document.getElementById('memberLoginModal').classList.add('active');
-  if (pinInput) pinInput.focus();
 }
 
 function closeMemberLoginModal() {
   document.getElementById('memberLoginModal').classList.remove('active');
+}
+
+function showAdminLoginStep() {
+  document.getElementById('loginStep1').style.display = 'none';
+  document.getElementById('loginStep2Family').style.display = 'none';
+  document.getElementById('loginStep2Admin').style.display = 'block';
+  setTimeout(() => {
+    const input = document.getElementById('adminPinFromModal');
+    if (input) input.focus();
+  }, 100);
+}
+
+function showFamilyLoginStep() {
+  document.getElementById('loginStep1').style.display = 'none';
+  document.getElementById('loginStep2Admin').style.display = 'none';
+  document.getElementById('loginStep2Family').style.display = 'block';
+  setTimeout(() => {
+    const input = document.getElementById('loginMemberPin');
+    if (input) input.focus();
+  }, 100);
+}
+
+function backToLoginStep1() {
+  document.getElementById('loginStep2Admin').style.display = 'none';
+  document.getElementById('loginStep2Family').style.display = 'none';
+  document.getElementById('loginStep1').style.display = 'block';
+}
+
+function handleAdminLoginFromModal(e) {
+  e.preventDefault();
+  const enteredPin = document.getElementById('adminPinFromModal').value.trim();
+  if (enteredPin === ADMIN_PIN || enteredPin === 'admin') {
+    currentRole = 'admin';
+    localStorage.setItem('fast_current_role', 'admin');
+    closeMemberLoginModal();
+    updateRoleUI();
+    renderAppViews();
+    showToast('✅ Sarthak Sir (Admin) Mode Unlocked! Full access granted.', 'success');
+  } else {
+    showToast('❌ Incorrect Admin PIN! Please try again.', 'error');
+    document.getElementById('adminPinFromModal').value = '';
+    document.getElementById('adminPinFromModal').focus();
+  }
 }
 
 function handleMemberLoginSubmit(e) {
@@ -350,10 +472,25 @@ function handleMemberLoginSubmit(e) {
   if (selectedUser) {
     currentFamilyUser = selectedUser;
     localStorage.setItem('fast_family_active_user', selectedUser);
+    
+    // Check if Sarthak Sir or Sub-Admin
+    if (selectedUser.toLowerCase().includes('sarthak')) {
+      currentRole = 'admin';
+      localStorage.setItem('fast_current_role', 'admin');
+    } else if (member && member.isSubAdmin) {
+      currentRole = 'subadmin';
+      localStorage.setItem('fast_current_role', 'subadmin');
+    } else {
+      currentRole = 'worker';
+      localStorage.setItem('fast_current_role', 'worker');
+    }
+
+    populateAssigneeSelects();
     closeMemberLoginModal();
     updateRoleUI();
     renderTasks();
-    showToast(`🔒 Passcode Verified! Logged in as "${selectedUser}".`, 'success');
+    const roleText = currentRole === 'admin' ? 'Super Admin' : (currentRole === 'subadmin' ? 'Sub-Admin 🛡️' : 'Family Member');
+    showToast(`🔒 Passcode Verified! Logged in as "${selectedUser}" (${roleText}).`, 'success');
   }
 }
 
@@ -394,7 +531,6 @@ function handleMemberFormSubmit(e) {
   showToast(`New member "${name}" added to Roster with Passcode PIN: ${pin}`, 'success');
 }
 
-// Admin PIN Logic
 function loadSavedPin() {
   const savedPin = localStorage.getItem('fast_admin_pin');
   if (savedPin) ADMIN_PIN = savedPin;
@@ -438,7 +574,6 @@ function handleResetPinSubmit(e) {
   showToast('Admin Security PIN reset successfully! New PIN is saved.', 'success');
 }
 
-// Cloud Realtime Sync
 function initCloudEngine() {
   const savedEngine = localStorage.getItem('fast_cloud_mode');
   if (savedEngine) cloudSyncMode = savedEngine;
@@ -547,7 +682,6 @@ function renderAppViews() {
   }
 }
 
-// View Layout Toggle Mode
 function toggleLayoutMode(mode) {
   layoutMode = mode;
   document.getElementById('btnLayoutGrid').classList.toggle('active', mode === 'grid');
@@ -567,13 +701,11 @@ function toggleLayoutMode(mode) {
   }
 }
 
-// Calendar Month Navigation Handlers
 function changeCalendarMonth(delta) {
   calendarMonthOffset += delta;
   renderCalendarView();
 }
 
-// Calendar Month View Renderer with Task Matching
 function renderCalendarView() {
   const container = document.getElementById('calendarViewContainer');
   if (!container) return;
@@ -630,7 +762,6 @@ function renderCalendarView() {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const isToday = (dateStr === todayStr);
 
-    // Match tasks where targetDate OR assignDate falls on this day
     const dayTasks = relevantTasks.filter(t => t.targetDate === dateStr || t.assignDate === dateStr);
 
     html += `
@@ -656,7 +787,6 @@ function renderCalendarView() {
   container.innerHTML = html;
 }
 
-// Role Switching UI
 function switchRole(newRole) {
   if (newRole === 'admin' && currentRole !== 'admin') {
     openPinModal();
@@ -688,7 +818,7 @@ function verifyAdminPin(e) {
     closePinModal();
     updateRoleUI();
     renderAppViews();
-    showToast('Admin Mode Unlocked (Sir View)! All member tasks visible.', 'success');
+    showToast('Admin Mode Unlocked (Sarthak Sir View)! All member tasks visible.', 'success');
   } else {
     showToast('Incorrect Admin PIN!', 'error');
   }
@@ -715,7 +845,18 @@ function updateRoleUI() {
     btnResetPin.style.display = 'inline-flex';
     userAccountBadge.style.display = 'none';
     if (filterAssignee) filterAssignee.style.display = 'block';
-    descText.innerText = 'Sir View: Full access to all tasks across all F.A.S.T Family members. Set Expected Targets, review Actual Progress, and approve/archive.';
+    descText.innerText = 'Sarthak Sir View: Full Super Admin access to manage roster, passcodes, create tasks & approve progress.';
+  } else if (currentRole === 'subadmin') {
+    btnAdmin.classList.remove('active');
+    btnWorker.classList.add('active');
+    btnCreate.style.display = 'inline-flex';
+    if (btnAddMemberHeader) btnAddMemberHeader.style.display = 'none';
+    if (btnManagePasscodesHeader) btnManagePasscodesHeader.style.display = 'none';
+    btnResetPin.style.display = 'none';
+    userAccountBadge.style.display = 'inline-flex';
+    if (activeUserNameText) activeUserNameText.innerText = `${currentFamilyUser} (Sub-Admin 🛡️)`;
+    if (filterAssignee) filterAssignee.style.display = 'block';
+    descText.innerText = `Sub-Admin Mode (${currentFamilyUser}): You can view all family tasks, create & assign new tasks, and log progress.`;
   } else {
     btnWorker.classList.add('active');
     btnAdmin.classList.remove('active');
@@ -726,11 +867,10 @@ function updateRoleUI() {
     userAccountBadge.style.display = 'inline-flex';
     if (activeUserNameText) activeUserNameText.innerText = currentFamilyUser;
     if (filterAssignee) filterAssignee.style.display = 'none';
-    descText.innerText = `F.A.S.T Family Mode (Logged in as ${currentFamilyUser}): Privacy Mode enabled. You are viewing ONLY tasks assigned to ${currentFamilyUser}.`;
+    descText.innerText = `FAST Family Mode (Logged in as ${currentFamilyUser}): Privacy Mode enabled. You are viewing ONLY tasks assigned to ${currentFamilyUser}.`;
   }
 }
 
-// Theme Switching
 function toggleTheme() {
   const html = document.documentElement;
   const currentTheme = html.getAttribute('data-theme');
@@ -755,7 +895,6 @@ function loadSavedTheme() {
   }
 }
 
-// Tab Switching
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tabActive').classList.toggle('active', tab === 'active');
@@ -763,7 +902,6 @@ function switchTab(tab) {
   renderAppViews();
 }
 
-// Calculate Dashboard Stats
 function updateStats() {
   let relevantTasks = tasks;
   if (currentRole === 'worker') {
@@ -788,7 +926,6 @@ function updateStats() {
   document.getElementById('archivedCountBadge').innerText = totalArchived;
 }
 
-// Ultra-Clean Render Task Cards Grid
 function renderTasks() {
   const container = document.getElementById('tasksContainer');
   if (!container) return;
@@ -901,7 +1038,7 @@ function renderTasks() {
 
               ${!task.archived ? `
                 ${currentRole === 'admin' ? `
-                  <button class="btn-tick-double" onclick="sirApproveAndArchive('${task.id}')" title="Sir's Tick Approval: Click to approve & archive to drafts!">
+                  <button class="btn-tick-double" onclick="sirApproveAndArchive('${task.id}')" title="Sarthak Sir's Tick Approval: Click to approve & archive to drafts!">
                     <i class="fa-solid fa-check"></i>
                   </button>
                   <button class="btn-icon-subtle" onclick="openTaskModal('${task.id}')" title="Edit Task"><i class="fa-solid fa-pen"></i></button>
@@ -940,7 +1077,7 @@ function renderTasks() {
 
           ${task.sirFeedback ? `
             <div class="note-box-clean" style="border-left-color:#F59E0B; background:rgba(245,158,11,0.06);">
-              <div class="note-title-clean" style="color:#B45309;">Sir's Note:</div>
+              <div class="note-title-clean" style="color:#B45309;">Sarthak Sir's Note:</div>
               "${escapeHtml(task.sirFeedback)}"
             </div>
           ` : ''}
@@ -980,7 +1117,6 @@ function renderTasks() {
   container.innerHTML = html;
 }
 
-// Email Config Modal
 function openEmailConfigModal() {
   document.getElementById('emailServiceIdInput').value = emailServiceId;
   document.getElementById('emailTemplateIdInput').value = emailTemplateId;
@@ -1005,7 +1141,6 @@ function saveEmailConfigSettings() {
   showToast('Email API Keys saved successfully!', 'success');
 }
 
-// Automated Background Email Dispatch Engine
 async function sendAutomatedBackgroundEmail(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1015,12 +1150,12 @@ async function sendAutomatedBackgroundEmail(taskId) {
 
   const subject = `📌 F.A.S.T Task Alert: ${task.name}`;
   const body = `Dear ${task.assignee},\n\n` +
-               `Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
+               `Sarthak Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
                `• Task Name: ${task.name}\n` +
                `• Target Due Date: ${task.targetDate}\n` +
-               `• Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
+               `• Sarthak Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
                `• Current Actual Progress: ${task.progressPct}%\n` +
-               `${task.sirFeedback ? `• Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
+               `${task.sirFeedback ? `• Sarthak Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
                `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
                `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
                `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
@@ -1044,7 +1179,7 @@ async function sendAutomatedBackgroundEmail(taskId) {
           email: recipientEmail,
           to_name: task.assignee,
           recipient: recipientEmail,
-          from_name: 'F.A.S.T Tutorials Sir',
+          from_name: 'F.A.S.T Tutorials Sarthak Sir',
           subject: subject,
           message: body,
           task_name: task.name,
@@ -1061,7 +1196,6 @@ async function sendAutomatedBackgroundEmail(taskId) {
   triggerNativeBrowserNotification(subject, `Notification sent to ${recipientEmail}`);
 }
 
-// Automated Background WhatsApp Dispatch Engine
 async function sendAutomatedBackgroundWhatsApp(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1076,7 +1210,7 @@ async function sendAutomatedBackgroundWhatsApp(taskId) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone,
-          message: `📌 *F.A.S.T Task Alert*\n*Task:* ${task.name}\n*Due Date:* ${task.targetDate}\n*Sir Expected Target:* ${task.expectedProgressPct || 100}%`
+          message: `📌 *F.A.S.T Task Alert*\n*Task:* ${task.name}\n*Due Date:* ${task.targetDate}\n*Sarthak Sir Expected Target:* ${task.expectedProgressPct || 100}%`
         })
       });
       task.whatsappSent = true;
@@ -1086,7 +1220,6 @@ async function sendAutomatedBackgroundWhatsApp(taskId) {
   }
 }
 
-// Email Dispatch Modal Actions
 function openEmailModal(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1099,12 +1232,12 @@ function openEmailModal(taskId) {
   document.getElementById('emailSubjectDisplay').value = `📌 F.A.S.T Task Alert: ${task.name}`;
   
   const body = `Dear ${task.assignee},\n\n` +
-               `Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
+               `Sarthak Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
                `• Task Name: ${task.name}\n` +
                `• Target Due Date: ${task.targetDate}\n` +
-               `• Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
+               `• Sarthak Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
                `• Current Actual Progress: ${task.progressPct}%\n` +
-               `${task.sirFeedback ? `• Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
+               `${task.sirFeedback ? `• Sarthak Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
                `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
                `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
                `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
@@ -1159,7 +1292,6 @@ async function dispatchDirectEmail() {
   closeEmailModal();
 }
 
-// Browser Push Notification API
 function requestBrowserNotificationPermission() {
   if ('Notification' in window && Notification.permission !== 'granted') {
     Notification.requestPermission();
@@ -1175,7 +1307,6 @@ function triggerNativeBrowserNotification(title, bodyText) {
   }
 }
 
-// Worker Submission Action
 function workerSubmitTask(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1187,19 +1318,18 @@ function workerSubmitTask(taskId) {
   if (!task.history) task.history = [];
   task.history.push({
     date: getFormattedDate(),
-    note: `F.A.S.T Family member marked task as completed (${expectedPct}%) & submitted for Sir's final approval.`,
+    note: `FAST Family member marked task as completed (${expectedPct}%) & submitted for Sarthak Sir's final approval.`,
     pct: expectedPct
   });
 
   syncAllTasks();
   playNotificationSound();
-  showToast(`Task submitted! It remains on Active list until Sir ticks final approval.`, 'info');
+  showToast(`Task submitted! It remains on Active list until Sarthak Sir ticks final approval.`, 'info');
 }
 
-// Sir's Final Tick Approval & Auto-Archive
 function sirApproveAndArchive(taskId) {
   if (currentRole !== 'admin') {
-    showToast('Only Sir (Admin) can approve and archive tasks!', 'error');
+    showToast('Only Sarthak Sir (Admin) can approve and archive tasks!', 'error');
     return;
   }
 
@@ -1212,13 +1342,13 @@ function sirApproveAndArchive(taskId) {
     if (!task.history) task.history = [];
     task.history.push({
       date: getFormattedDate(),
-      note: 'Sir inspected task, clicked tick approval, and moved task to Archived Drafts.',
+      note: 'Sarthak Sir inspected task, clicked tick approval, and moved task to Archived Drafts.',
       pct: task.progressPct || 100
     });
 
     syncAllTasks();
     playNotificationSound();
-    showToast(`Sir Approved! Task "${task.name.substring(0, 22)}..." moved to Archived Drafts!`, 'success');
+    showToast(`Sarthak Sir Approved! Task "${task.name.substring(0, 22)}..." moved to Archived Drafts!`, 'success');
   }
 }
 
@@ -1236,7 +1366,7 @@ function restoreTask(taskId) {
 
 function deleteTask(taskId) {
   if (currentRole !== 'admin') {
-    showToast('Only Sir can delete tasks!', 'error');
+    showToast('Only Sarthak Sir can delete tasks!', 'error');
     return;
   }
   if (confirm('Are you sure you want to permanently delete this task?')) {
@@ -1246,7 +1376,6 @@ function deleteTask(taskId) {
   }
 }
 
-// Sub-task Toggle
 function toggleSubtask(taskId, subtaskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task || !task.subtasks) return;
@@ -1264,7 +1393,6 @@ function toggleSubtask(taskId, subtaskId) {
   }
 }
 
-// WhatsApp Share Integration
 function shareOnWhatsApp(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1279,10 +1407,10 @@ function shareOnWhatsApp(taskId) {
                `*Task:* ${task.name}\n` +
                `*Assignee:* ${task.assignee}\n` +
                `*Target Date:* ${task.targetDate}\n` +
-               `*Sir's Expected Target:* ${task.expectedProgressPct || 100}%\n` +
+               `*Sarthak Sir's Expected Target:* ${task.expectedProgressPct || 100}%\n` +
                `*Family Actual Progress:* ${task.progressPct}%\n` +
-               `*Status:* ${task.workerSubmitted ? 'Awaiting Sir Approval' : 'In Progress'}\n` +
-               `${task.sirFeedback ? `*Sir's Note:* "${task.sirFeedback}"\n` : ''}` +
+               `*Status:* ${task.workerSubmitted ? 'Awaiting Sarthak Sir Approval' : 'In Progress'}\n` +
+               `${task.sirFeedback ? `*Sarthak Sir Note:* "${task.sirFeedback}"\n` : ''}` +
                `*Today's Note:* "${task.todayProgress || 'Pending update'}"\n\n` +
                `Please update your progress on F.A.S.T TaskTrack Pro!`;
 
@@ -1293,10 +1421,9 @@ function shareOnWhatsApp(taskId) {
   showToast('WhatsApp alert launched! Status set to WhatsApp Sent ✔️', 'success');
 }
 
-// Task Modal (Create / Edit - Sir / Admin)
 function openTaskModal(taskId = null) {
   if (currentRole !== 'admin') {
-    showToast('Only Sir can create or modify core task parameters!', 'error');
+    showToast('Only Sarthak Sir can create or modify core task parameters!', 'error');
     return;
   }
 
@@ -1394,7 +1521,7 @@ function handleTaskFormSubmit(e) {
       sirApproved: false,
       archived: false,
       history: [
-        { date: getFormattedDate(), note: todayProgress || `Task assigned by Sir. Expected Target: ${expectedProgressPct}%`, pct: 0 }
+        { date: getFormattedDate(), note: todayProgress || `Task assigned by Sarthak Sir. Expected Target: ${expectedProgressPct}%`, pct: 0 }
       ]
     };
     tasks.unshift(newTask);
@@ -1403,14 +1530,12 @@ function handleTaskFormSubmit(e) {
   syncAllTasks();
   playNotificationSound();
   closeTaskModal();
-  showToast(id ? 'Task updated!' : 'New Task assigned by Sir!', 'success');
+  showToast(id ? 'Task updated!' : 'New Task assigned by Sarthak Sir!', 'success');
 
-  // Auto Trigger Background Email & WhatsApp Notifications!
   sendAutomatedBackgroundEmail(currentTaskId);
   sendAutomatedBackgroundWhatsApp(currentTaskId);
 }
 
-// Log Today's Progress Modal
 function openProgressModal(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1471,7 +1596,6 @@ function handleProgressFormSubmit(e) {
   }
 }
 
-// Cloud Config Modal
 function openCloudModal() {
   document.getElementById('cloudEngineSelect').value = cloudSyncMode;
   toggleCloudEngineFields();
@@ -1507,7 +1631,6 @@ function saveCloudSettings() {
   showToast('Cloud settings updated!', 'success');
 }
 
-// Export Data to CSV
 function exportToCSV() {
   if (tasks.length === 0) {
     showToast('No tasks available to export.', 'info');
@@ -1549,7 +1672,6 @@ function exportToCSV() {
   showToast('CSV Report Downloaded Successfully!', 'success');
 }
 
-// Utility: HTML Escaper
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/[&<>"']/g, function(m) {
@@ -1563,7 +1685,6 @@ function escapeHtml(str) {
   });
 }
 
-// Toast Notifications Helper
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');

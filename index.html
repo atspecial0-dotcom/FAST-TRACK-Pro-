@@ -54,10 +54,10 @@
         <!-- Role Switcher -->
         <div class="role-switcher-badge">
           <button class="role-btn active admin" id="btnRoleAdmin" onclick="switchRole('admin')">
-            <i class="fa-solid fa-user-shield"></i> Sir (Admin)
+            <i class="fa-solid fa-user-shield"></i> Sarthak Sir (Admin)
           </button>
           <button class="role-btn worker" id="btnRoleWorker" onclick="switchRole('worker')">
-            <i class="fa-solid fa-users"></i> F.A.S.T Family
+            <i class="fa-solid fa-users"></i> FAST Family
           </button>
         </div>
 
@@ -76,7 +76,7 @@
     <div class="dashboard-header">
       <div class="welcome-box">
         <h1 id="welcomeGreeting">Task Management Dashboard</h1>
-        <p id="roleDescriptionText">Sir View: Set Expected Targets, review Actual Progress, and double-tick approval to archive completed tasks.</p>
+        <p id="roleDescriptionText">Sarthak Sir View: Set Expected Targets, review Actual Progress, and double-tick approval to archive completed tasks.</p>
       </div>
 
       <div class="header-actions">
@@ -206,7 +206,7 @@
 
       <div class="modal-body">
         <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.2rem;">
-          🔑 Sir (Admin) control panel to view, change, or reset passcodes for any F.A.S.T Family member.
+          🔑 Sarthak Sir (Admin) control panel to view, change, or reset passcodes for any FAST Family member.
         </p>
 
         <div id="rosterManageList" style="display:flex; flex-direction:column; gap:0.8rem;">
@@ -221,38 +221,101 @@
     </div>
   </div>
 
-  <!-- F.A.S.T Family Member Account Selection & Passcode Login Modal -->
+  <!-- FAST Family Member Account Selection & Passcode Login Modal -->
   <div class="modal-overlay" id="memberLoginModal">
     <div class="modal-container" style="max-width: 440px;">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-user-lock"></i> F.A.S.T Family Secure Login</h2>
+        <h2><i class="fa-solid fa-shield-halved"></i> Welcome to FAST TaskTrack</h2>
         <button class="modal-close-btn" onclick="closeMemberLoginModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <form id="memberLoginForm" onsubmit="handleMemberLoginSubmit(event)">
+      <!-- STEP 1: Choose Role (shown by default) -->
+      <div id="loginStep1" class="modal-body">
+        <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.4rem; text-align:center;">
+          Who are you? Please select your role to continue.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          <!-- Admin Card -->
+          <button onclick="showAdminLoginStep()" style="display:flex; align-items:center; gap:1rem; padding:1.2rem 1.4rem; background:linear-gradient(135deg,#1a1a2e,#16213e); border:2px solid var(--fast-red); border-radius:16px; cursor:pointer; text-align:left; transition:all 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+            <div style="width:48px; height:48px; border-radius:12px; background:var(--fast-red); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <i class="fa-solid fa-user-shield" style="font-size:1.4rem; color:white;"></i>
+            </div>
+            <div>
+              <div style="font-size:1.05rem; font-weight:800; color:white;">Sarthak Sir (Admin)</div>
+              <div style="font-size:0.78rem; color:#aaa; margin-top:2px;">Full access · Create & manage all tasks</div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="margin-left:auto; color:var(--fast-red);"></i>
+          </button>
+
+          <!-- FAST Family Card -->
+          <button onclick="showFamilyLoginStep()" style="display:flex; align-items:center; gap:1rem; padding:1.2rem 1.4rem; background:var(--bg-surface); border:2px solid var(--border-color); border-radius:16px; cursor:pointer; text-align:left; transition:all 0.2s ease;" onmouseover="this.style.borderColor='var(--fast-red)'; this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='var(--border-color)'; this.style.transform='scale(1)'">
+            <div style="width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#10B981,#059669); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <i class="fa-solid fa-users" style="font-size:1.3rem; color:white;"></i>
+            </div>
+            <div>
+              <div style="font-size:1.05rem; font-weight:800; color:var(--text-main);">FAST Family</div>
+              <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">View & update your assigned tasks</div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="margin-left:auto; color:var(--text-muted);"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2A: Admin PIN Entry -->
+      <form id="loginStep2Admin" onsubmit="handleAdminLoginFromModal(event)" style="display:none;">
         <div class="modal-body">
-          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.2rem;">
-            🔒 <strong>100% Private Access:</strong> Select your account and enter your secret passcode. Default Passcode is <strong>1234</strong>.
-          </p>
+          <button type="button" onclick="backToLoginStep1()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.85rem; margin-bottom:1rem; display:flex; align-items:center; gap:6px; padding:0;">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+          <div style="text-align:center; margin-bottom:1.4rem;">
+            <div style="width:56px; height:56px; border-radius:14px; background:var(--fast-red); display:flex; align-items:center; justify-content:center; margin:0 auto 0.8rem;">
+              <i class="fa-solid fa-user-shield" style="font-size:1.5rem; color:white;"></i>
+            </div>
+            <div style="font-size:1.1rem; font-weight:800; color:var(--text-main);">Sarthak Sir (Admin)</div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">Enter your secret Admin PIN to continue</div>
+          </div>
+          <div class="form-group">
+            <input type="password" id="adminPinFromModal" placeholder="Enter Admin PIN" maxlength="6" style="text-align:center; font-size:1.5rem; letter-spacing:6px;" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeMemberLoginModal()">Cancel</button>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-unlock"></i> Unlock Admin</button>
+        </div>
+      </form>
+
+      <!-- STEP 2B: FAST Family Member Select + PIN -->
+      <form id="loginStep2Family" onsubmit="handleMemberLoginSubmit(event)" style="display:none;">
+        <div class="modal-body">
+          <button type="button" onclick="backToLoginStep1()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.85rem; margin-bottom:1rem; display:flex; align-items:center; gap:6px; padding:0;">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+          <div style="text-align:center; margin-bottom:1.2rem;">
+            <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg,#10B981,#059669); display:flex; align-items:center; justify-content:center; margin:0 auto 0.8rem;">
+              <i class="fa-solid fa-users" style="font-size:1.4rem; color:white;"></i>
+            </div>
+            <div style="font-size:1.1rem; font-weight:800; color:var(--text-main);">FAST Family Login</div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">🔒 Default Passcode: <strong>1234</strong></div>
+          </div>
 
           <div class="form-group">
             <label for="loginMemberSelect"><i class="fa-solid fa-id-card"></i> Select Your Account:</label>
             <select id="loginMemberSelect" class="form-control" required style="padding-left:12px; font-weight:700; font-size:1rem;">
-              <!-- Populated dynamically from roster -->
             </select>
           </div>
 
           <div class="form-group">
-            <label for="loginMemberPin"><i class="fa-solid fa-key"></i> Enter Your 4-Digit Passcode:</label>
+            <label for="loginMemberPin"><i class="fa-solid fa-key"></i> Your Passcode:</label>
             <input type="password" id="loginMemberPin" placeholder="Default PIN: 1234" maxlength="6" style="text-align:center; font-size:1.3rem; letter-spacing:4px;" required>
           </div>
         </div>
-
         <div class="modal-footer">
           <button type="button" class="btn-secondary" onclick="closeMemberLoginModal()">Cancel</button>
-          <button type="submit" class="btn-primary">Unlock My Private Dashboard</button>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-unlock"></i> Unlock My Dashboard</button>
         </div>
       </form>
+
     </div>
   </div>
 
@@ -270,7 +333,7 @@
 
           <!-- Assignee Select Dropdown + Add Member Button -->
           <div class="form-group">
-            <label for="taskAssigneeSelect"><i class="fa-solid fa-users"></i> Select F.A.S.T Family Member</label>
+            <label for="taskAssigneeSelect"><i class="fa-solid fa-users"></i> Select FAST Family Member</label>
             <div class="assignee-dropdown-group">
               <select id="taskAssigneeSelect" class="form-control" required style="padding-left:12px;">
                 <!-- Dynamically populated from Family Roster -->
@@ -300,10 +363,10 @@
           <!-- Sir's Expected Progress Target Slider -->
           <div class="form-group">
             <label for="taskExpectedProgress" style="color:var(--fast-charcoal); font-weight:800;">
-              <i class="fa-solid fa-bullseye"></i> Sir's Expected Target Progress (%): <span id="expectedProgressPctLabel" style="color:var(--fast-red); font-weight:800;">100%</span>
+              <i class="fa-solid fa-bullseye"></i> Sarthak Sir's Expected Target Progress (%): <span id="expectedProgressPctLabel" style="color:var(--fast-red); font-weight:800;">100%</span>
             </label>
             <input type="range" id="taskExpectedProgress" min="0" max="100" value="100" oninput="document.getElementById('expectedProgressPctLabel').innerText = this.value + '%'">
-            <small style="color:var(--text-muted); font-size:0.75rem;">This is the target percentage Sir expects by the Target Date.</small>
+            <small style="color:var(--text-muted); font-size:0.75rem;">This is the target percentage Sarthak Sir expects by the Target Date.</small>
           </div>
 
           <!-- Sub-Tasks Breakdown Input -->
@@ -314,7 +377,7 @@
 
           <!-- Sir's Revision / Feedback Note Input -->
           <div class="form-group">
-            <label for="taskSirFeedback" style="color:var(--fast-red);"><i class="fa-solid fa-user-ninja"></i> Sir's Feedback / Revision Note (If changes needed)</label>
+            <label for="taskSirFeedback" style="color:var(--fast-red);"><i class="fa-solid fa-user-ninja"></i> Sarthak Sir's Feedback / Revision Note (If changes needed)</label>
             <input type="text" id="taskSirFeedback" placeholder="e.g. Please add Chapter 3 MCQs before final approval.">
           </div>
 
@@ -410,7 +473,7 @@
   <div class="modal-overlay" id="memberModal">
     <div class="modal-container" style="max-width: 440px;">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-user-plus"></i> Add New F.A.S.T Family Member</h2>
+        <h2><i class="fa-solid fa-user-plus"></i> Add New FAST Family Member</h2>
         <button class="modal-close-btn" onclick="closeMemberModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
@@ -442,7 +505,7 @@
     </div>
   </div>
 
-  <!-- Update Daily Progress Modal (Accessible by F.A.S.T Family & Admin) -->
+  <!-- Update Daily Progress Modal (Accessible by FAST Family & Admin) -->
   <div class="modal-overlay" id="progressModal">
     <div class="modal-container">
       <div class="modal-header">
@@ -497,13 +560,13 @@
   <div class="modal-overlay" id="pinModal">
     <div class="modal-container" style="max-width: 380px;">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-lock"></i> Sir (Admin) Authentication</h2>
+        <h2><i class="fa-solid fa-lock"></i> Sarthak Sir (Admin) Authentication</h2>
         <button class="modal-close-btn" onclick="closePinModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <form id="pinForm" onsubmit="verifyAdminPin(event)">
         <div class="modal-body" style="text-align: center;">
-          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">Enter Security PIN to unlock Sir (Admin) Mode.</p>
+          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">Enter Security PIN to unlock Sarthak Sir (Admin) Mode.</p>
           <div class="form-group">
             <input type="password" id="adminPinInput" placeholder="Enter PIN" maxlength="6" style="text-align:center; font-size:1.4rem; letter-spacing:4px;" required>
           </div>
