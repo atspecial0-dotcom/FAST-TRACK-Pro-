@@ -124,6 +124,83 @@ let emailPublicKey = localStorage.getItem('fast_email_public_key') || '_HNHeTv_d
 
 let whatsappGatewayUrl = localStorage.getItem('fast_whatsapp_gateway_url') || '';
 
+// ─── In-App Notification System ───────────────────────────────────────────────
+let appNotifications = JSON.parse(localStorage.getItem('fast_notifications') || '[]');
+
+function addNotification(text, type = 'info', icon = 'fa-bell') {
+  const notif = {
+    id: 'notif-' + Date.now(),
+    text,
+    type,
+    icon,
+    time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    date: getFormattedDate(),
+    read: false
+  };
+  appNotifications.unshift(notif);
+  if (appNotifications.length > 50) appNotifications = appNotifications.slice(0, 50);
+  localStorage.setItem('fast_notifications', JSON.stringify(appNotifications));
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notifBadge');
+  const unread = appNotifications.filter(n => !n.read).length;
+  if (badge) {
+    badge.innerText = unread;
+    badge.style.display = unread > 0 ? 'flex' : 'none';
+  }
+}
+
+function openNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (!panel) return;
+  // Mark all as read
+  appNotifications.forEach(n => n.read = true);
+  localStorage.setItem('fast_notifications', JSON.stringify(appNotifications));
+  updateNotifBadge();
+
+  // Render notifications
+  const list = document.getElementById('notifList');
+  if (appNotifications.length === 0) {
+    list.innerHTML = '<div style="text-align:center; padding:28px; color:var(--text-muted); font-size:0.9rem;"><i class="fa-solid fa-bell-slash" style="font-size:2rem; margin-bottom:8px; display:block; opacity:0.4;"></i>No notifications yet</div>';
+  } else {
+    list.innerHTML = appNotifications.map(n => `
+      <div style="display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--border-color);">
+        <div style="width:34px; height:34px; border-radius:50%; background:${
+          n.type === 'success' ? 'rgba(16,185,129,0.15)' :
+          n.type === 'error'   ? 'rgba(239,68,68,0.15)' :
+          n.type === 'warning' ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)'
+        }; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <i class="fa-solid ${n.icon}" style="font-size:0.85rem; color:${
+            n.type === 'success' ? '#10b981' :
+            n.type === 'error'   ? '#ef4444' :
+            n.type === 'warning' ? '#f59e0b' : '#6366f1'
+          };"></i>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:0.83rem; color:var(--text-main); font-weight:600; line-height:1.4;">${escapeHtml(n.text)}</div>
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">${n.date} &nbsp;·&nbsp; ${n.time}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+  panel.classList.add('active');
+}
+
+function closeNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (panel) panel.classList.remove('active');
+}
+
+function clearAllNotifications() {
+  appNotifications = [];
+  localStorage.setItem('fast_notifications', JSON.stringify(appNotifications));
+  updateNotifBadge();
+  openNotifPanel();
+}
+// ─── End Notification System ───────────────────────────────────────────────────
+
 function getFormattedDate(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -170,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updateRoleUI();
   requestBrowserNotificationPermission();
+  updateNotifBadge();
 
   if (currentRole === 'worker') {
     setTimeout(() => {
@@ -860,14 +938,14 @@ function updateRoleUI() {
   } else {
     btnWorker.classList.add('active');
     btnAdmin.classList.remove('active');
-    btnCreate.style.display = 'none';
+    btnCreate.style.display = 'inline-flex';
     if (btnAddMemberHeader) btnAddMemberHeader.style.display = 'none';
     if (btnManagePasscodesHeader) btnManagePasscodesHeader.style.display = 'none';
     btnResetPin.style.display = 'none';
     userAccountBadge.style.display = 'inline-flex';
     if (activeUserNameText) activeUserNameText.innerText = currentFamilyUser;
     if (filterAssignee) filterAssignee.style.display = 'none';
-    descText.innerText = `FAST Family Mode (Logged in as ${currentFamilyUser}): Privacy Mode enabled. You are viewing ONLY tasks assigned to ${currentFamilyUser}.`;
+    descText.innerText = `FAST Family Mode (Logged in as ${currentFamilyUser}): Create tasks assigned to you or view your dashboard.`;
   }
 }
 
@@ -1021,7 +1099,10 @@ function renderTasks() {
       <div class="task-card ${isOverdue ? 'is-overdue' : ''} ${isWorkerSubmitted ? 'is-submitted' : ''} ${task.archived ? 'is-archived' : ''}">
         <div>
           <div class="card-header-clean">
-            <span class="assignee-badge-clean"><i class="fa-solid fa-user"></i> ${escapeHtml(task.assignee)}</span>
+            <span class="assignee-badge-clean">
+              <i class="fa-solid fa-user"></i> ${escapeHtml(task.assignee)}
+              ${task.createdBy ? `<span style="font-size:0.72rem; opacity:0.85; margin-left:4px; font-weight:normal;">• By ${escapeHtml(task.createdBy)}</span>` : ''}
+            </span>
             
             <div class="card-actions-clean">
               ${task.emailSent ? `
@@ -1178,24 +1259,52 @@ function saveEmailConfigSettings() {
   showToast('Email API Keys saved successfully!', 'success');
 }
 
-async function sendAutomatedBackgroundEmail(taskId) {
+async function sendAutomatedBackgroundEmail(taskId, notifyAdmin = false) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
 
-  const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
-  const recipientEmail = member ? member.email : 'member@fasttutorials.com';
+  let recipientEmail, toName, subject, body;
 
-  const subject = `📌 F.A.S.T Task Alert: ${task.name}`;
-  const body = `Dear ${task.assignee},\n\n` +
-               `Sarthak Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
-               `• Task Name: ${task.name}\n` +
-               `• Target Due Date: ${task.targetDate}\n` +
-               `• Sarthak Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
-               `• Current Actual Progress: ${task.progressPct}%\n` +
-               `${task.sirFeedback ? `• Sarthak Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
-               `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
-               `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
-               `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
+  if (notifyAdmin) {
+    // Member added a task → notify Sarthak Sir (Admin)
+    const adminMember = familyRoster.find(m => m.name.toLowerCase().includes('sarthak'));
+    recipientEmail = adminMember ? adminMember.email : 'sarthak@fasttutorials.com';
+    toName = 'Sarthak Sir';
+    subject = `🔔 New Task Added by ${task.createdBy || task.assignee}: ${task.name}`;
+    body = `Dear Sarthak Sir,\n\n` +
+           `A new task has been added on F.A.S.T TaskTrack Pro:\n\n` +
+           `• Added By: ${task.createdBy || task.assignee}\n` +
+           `• Task Name: ${task.name}\n` +
+           `• Assigned To: ${task.assignee}\n` +
+           `• Target Due Date: ${task.targetDate}\n` +
+           `• Notes: "${task.todayProgress || 'N/A'}"\n\n` +
+           `Please review this task on F.A.S.T TaskTrack Pro.\n\n` +
+           `Regards,\nF.A.S.T TaskTrack Pro`;
+    addNotification(
+      `📋 New task added by ${task.createdBy || task.assignee}: "${task.name}" → Notification sent to Sir`,
+      'info', 'fa-circle-plus'
+    );
+  } else {
+    // Admin/SubAdmin created task → notify the assignee
+    const member = familyRoster.find(m => m.name.toLowerCase() === task.assignee.toLowerCase());
+    recipientEmail = member ? member.email : 'member@fasttutorials.com';
+    toName = task.assignee;
+    subject = `📌 F.A.S.T Task Alert: ${task.name}`;
+    body = `Dear ${task.assignee},\n\n` +
+           `Sarthak Sir has assigned/updated a task for you on F.A.S.T TaskTrack Pro:\n\n` +
+           `• Task Name: ${task.name}\n` +
+           `• Target Due Date: ${task.targetDate}\n` +
+           `• Sarthak Sir's Expected Target: ${task.expectedProgressPct || 100}%\n` +
+           `• Current Actual Progress: ${task.progressPct}%\n` +
+           `${task.sirFeedback ? `• Sarthak Sir's Revision Note: "${task.sirFeedback}"\n` : ''}` +
+           `• Task Description: "${task.todayProgress || 'N/A'}"\n\n` +
+           `Please update your daily progress on F.A.S.T TaskTrack Pro!\n\n` +
+           `Regards,\nFirst Attempt Success Tutorials (F.A.S.T)`;
+    addNotification(
+      `📧 Email sent to ${task.assignee} for task: "${task.name}"`,
+      'success', 'fa-envelope'
+    );
+  }
 
   task.emailSent = true;
   task.emailSentAt = getFormattedDate();
@@ -1214,7 +1323,7 @@ async function sendAutomatedBackgroundEmail(taskId) {
           recipient_email: recipientEmail,
           user_email: recipientEmail,
           email: recipientEmail,
-          to_name: task.assignee,
+          to_name: toName,
           recipient: recipientEmail,
           from_name: 'F.A.S.T Tutorials Sarthak Sir',
           subject: subject,
@@ -1224,10 +1333,9 @@ async function sendAutomatedBackgroundEmail(taskId) {
         }
       })
     });
-
-    showToast(`🟢 Email Sent Automatically to ${recipientEmail}! ✔️`, 'success');
+    showToast(`🟢 Email sent to ${recipientEmail}! ✔️`, 'success');
   } catch (err) {
-    showToast(`🟢 Task Saved! Email Alert status set to Email Sent ✔️`, 'info');
+    showToast(`🟢 Task Saved! Email notification logged ✔️`, 'info');
   }
 
   triggerNativeBrowserNotification(subject, `Notification sent to ${recipientEmail}`);
@@ -1459,8 +1567,8 @@ function shareOnWhatsApp(taskId) {
 }
 
 function openTaskModal(taskId = null) {
-  if (currentRole !== 'admin') {
-    showToast('Only Sarthak Sir can create or modify core task parameters!', 'error');
+  if (taskId && currentRole === 'worker') {
+    showToast('Task parameters are locked once created. You can log daily progress & notes below!', 'info');
     return;
   }
 
@@ -1486,6 +1594,9 @@ function openTaskModal(taskId = null) {
   } else {
     document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Create New Task';
     document.getElementById('taskId').value = '';
+    if (currentRole === 'worker') {
+      document.getElementById('taskAssigneeSelect').value = currentFamilyUser;
+    }
     document.getElementById('taskAssignDate').value = getFormattedDate();
     document.getElementById('taskTargetDate').value = getFormattedDate(7);
     document.getElementById('taskExpectedProgress').value = 100;
@@ -1543,6 +1654,7 @@ function handleTaskFormSubmit(e) {
     const newTask = {
       id: currentTaskId,
       assignee,
+      createdBy: currentFamilyUser,
       name,
       assignDate,
       targetDate,
@@ -1557,8 +1669,9 @@ function handleTaskFormSubmit(e) {
       workerSubmitted: false,
       sirApproved: false,
       archived: false,
+      isLocked: true,
       history: [
-        { date: getFormattedDate(), note: todayProgress || `Task assigned by Sarthak Sir. Expected Target: ${expectedProgressPct}%`, pct: 0 }
+        { date: getFormattedDate(), note: todayProgress || `Task added by ${currentFamilyUser}. Target: ${expectedProgressPct}%`, pct: 0 }
       ]
     };
     tasks.unshift(newTask);
@@ -1567,10 +1680,20 @@ function handleTaskFormSubmit(e) {
   syncAllTasks();
   playNotificationSound();
   closeTaskModal();
-  showToast(id ? 'Task updated!' : 'New Task assigned by Sarthak Sir!', 'success');
+  showToast(id ? 'Task updated!' : `New Task added by ${currentFamilyUser}!`, 'success');
 
-  sendAutomatedBackgroundEmail(currentTaskId);
+  // If a FAST Family member (worker/subadmin) adds a task → notify Sarthak Sir
+  // If Admin creates/edits task → notify the assignee
+  const notifyAdminMode = (currentRole === 'worker' || currentRole === 'subadmin') && !id;
+  sendAutomatedBackgroundEmail(currentTaskId, notifyAdminMode);
   sendAutomatedBackgroundWhatsApp(currentTaskId);
+
+  if (notifyAdminMode) {
+    addNotification(
+      `✅ Your task "${name}" has been submitted to Sarthak Sir for review.`,
+      'success', 'fa-circle-check'
+    );
+  }
 }
 
 function openProgressModal(taskId) {
